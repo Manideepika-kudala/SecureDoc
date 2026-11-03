@@ -67,3 +67,41 @@ Design a relational database for secure document sharing, permissions, and audit
 
 ## Design Note
 This is the planned logical schema. The final database engine and migration syntax will be selected during implementation.
+
+## Finalized Design Decisions
+
+### Permission Model
+- Document-level permissions are granted to named users.
+- READ allows viewing and downloading.
+- EDIT allows reading and modifying permitted document content.
+- Owners manage permissions for their own documents.
+- Administrators can view system activity but do not automatically bypass document authorization.
+- Permissions may have an optional expiry timestamp.
+
+### Document Storage
+- Uploaded files are stored using random storage keys.
+- Original filenames are treated as metadata only.
+- Files are not served from a public directory.
+- Download requests must pass server-side authorization.
+
+### Access Revocation
+- Permissions are updated in the database immediately.
+- Every document request checks current authorization.
+- Long-lived permission caches are avoided.
+- Any issued download URL must have a short expiry and documented revocation limitation.
+
+### Audit Trail
+- Security-relevant actions are recorded.
+- Successful and denied access attempts are recorded.
+- Audit records are append-only.
+- Database permissions and integrity controls will protect audit records.
+
+### Search
+- Search results are filtered using the requesting user's authorization.
+- Unauthorized document metadata must not be exposed.
+- Search supports document title, owner, category, and date.
+
+### Known Limitations
+- The current schema is a design draft, not a deployed database.
+- Database-specific constraints and append-only enforcement will be verified during implementation.
+- Storage security and authorization behavior require automated tests.
