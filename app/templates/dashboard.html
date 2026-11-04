@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureDoc | Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <main class="container">
+        <section class="card">
+            <h1>Welcome to SecureDoc</h1>
+            <p id="welcome-message">Your secure document workspace.</p>
+            <p>You are logged in successfully.</p>
+            <button id="logout-button" type="button">Log Out</button>
+            <p id="message" role="status"></p>
+        </section>
+    </main>
+
+    <script>
+        document.getElementById("logout-button").addEventListener("click", async () => {
+            const message = document.getElementById("message");
+
+            try {
+                const response = await fetch("/auth/logout", {
+                    method: "POST",
+                    credentials: "same-origin"
+                });
+
+                if (response.ok) {
+                    window.location.href = "/login";
+                } else {
+                    message.textContent = "Logout failed. Please try again.";
+                }
+            } catch {
+                message.textContent = "Could not connect to the server.";
+            }
+        });
+
+        fetch("/auth/me", { credentials: "same-origin" })
+            .then(response => {
+                if (!response.ok) {
+                    window.location.href = "/login";
+                    return null;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.username) {
+                    document.getElementById("welcome-message").textContent =
+                        `Welcome, ${data.username}!`;
+                }
+            })
+            .catch(() => {
+                window.location.href = "/login";
+            });
+    </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | SecureDoc</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+
+    <style>
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 30px 16px;
+            background: #24142F;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 440px;
+            padding: 42px;
+            background: #F5F0E8;
+            border-radius: 16px;
+            box-shadow: 0 25px 70px #00000040;
+        }
+
+        .login-brand {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-brand h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            color: #24142F;
+        }
+
+        .login-brand h1 span {
+            color: #C8754D;
+        }
+
+        .login-brand p {
+            margin-top: 10px;
+            color: #817780;
+            font-size: 13px;
+        }
+
+        .login-card label {
+            display: block;
+            margin: 18px 0 8px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .login-card input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #DED3C9;
+            border-radius: 7px;
+            background: white;
+            font: inherit;
+            outline: none;
+        }
+
+        .login-card input:focus {
+            border-color: #C8754D;
+            box-shadow: 0 0 0 3px #C8754D20;
+        }
+
+        .login-card button {
+            width: 100%;
+            margin-top: 25px;
+            padding: 15px;
+            border: none;
+            border-radius: 7px;
+            background: #C8754D;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .login-card button:hover {
+            background: #B66440;
+        }
+
+        #message {
+            margin-top: 16px;
+            font-size: 13px;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .login-footer {
+            margin-top: 24px;
+            text-align: center;
+            color: #817780;
+            font-size: 13px;
+            line-height: 2;
+        }
+
+        .login-footer a {
+            color: #C8754D;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+
+    <main class="login-card">
+
+        <div class="login-brand">
+            <h1>Secure<span>Doc</span></h1>
+            <p>Welcome back to your private vault.</p>
+        </div>
+
+        <form id="loginForm">
+
+            <label for="email">Email Address</label>
+            <input
+                type="email"
+                id="email"
+                required
+                placeholder="you@example.com"
+            >
+
+            <label for="password">Password</label>
+            <input
+                type="password"
+                id="password"
+                minlength="8"
+                maxlength="128"
+                required
+                placeholder="Enter your password"
+            >
+
+            <button type="submit" id="loginButton">
+                Log In to SecureDoc
+            </button>
+
+            <p id="message" role="status"></p>
+
+        </form>
+
+        <div class="login-footer">
+            Don't have an account?
+            <a href="/register">Create Account</a>
+            <br>
+            <a href="/">← Back to Home</a>
+        </div>
+
+    </main>
+
+    <script>
+        const form = document.getElementById("loginForm");
+        const message = document.getElementById("message");
+        const button = document.getElementById("loginButton");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            message.textContent = "";
+            button.disabled = true;
+            button.textContent = "Verifying...";
+
+            const loginData = {
+                email: document.getElementById("email").value.trim(),
+                password: document.getElementById("password").value
+            };
+
+            try {
+                const response = await fetch("/auth/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(loginData)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    message.style.color = "#B33A3A";
+                    message.textContent = result.detail || "Login failed.";
+                    return;
+                }
+
+                window.location.href = "/dashboard";
+
+            } catch (error) {
+                message.style.color = "#B33A3A";
+                message.textContent =
+                    "Unable to connect. Please try again.";
+            } finally {
+                button.disabled = false;
+                button.textContent = "Log In to SecureDoc";
+            }
+        });
+    </script>
+
+</body>
+</html>
+
+
