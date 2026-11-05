@@ -1,90 +1,69 @@
 ﻿# SecureDoc - Project Progress
 
-## Project Planning and Architecture
+## Completed Work
 
-### Completed
-- Reviewed project challenge requirements.
-- Created project repository and documentation.
-- Created problem statement and implementation plan.
-- Created threat model and security prompts.
-- Designed database tables for Users, Documents, Permissions and Audit Logs.
-- Created database design and schema documentation.
-- Created API documentation.
+### Authentication
+- User registration and login.
+- Username and email validation.
+- Argon2 password hashing.
+- Session management and logout.
+- Protected dashboard routes.
 
-## Authentication and Session Management
+### Document Authorization
+- Centralized server-side authorization.
+- Document ownership verification.
+- Viewer and Editor permission levels.
+- Permission grant, update and revoke.
+- Access denial after permission revocation.
 
-### Completed
-- Implement user registration.
-- Add username and email validation.
-- Prevent duplicate usernames and email addresses.
-- Add Argon2 password hashing.
-- Enforce password length requirements.
-- Block common passwords.
-- Implement login authentication.
-- Handle invalid login credentials.
-- Add session middleware and secure session handling.
-- Implement logout functionality.
-- Protect dashboard routes.
-- Add authentication-based login redirects.
+### Document Management
+- Secure document upload and download.
+- Filename sanitization and file validation.
+- Private document storage.
+- My Documents and Shared With Me sections.
+- Shared-by username, email and date/time display.
 
-## Document Authorization
+### Document Sharing
+- Dedicated sharing page.
+- User search by username/email.
+- Viewer and Editor permission selection.
+- Permission update and revoke.
 
-### Completed
-- Implement centralized server-side authorization.
-- Add document ownership verification.
-- Implement viewer and editor permissions.
-- Add per-document access control.
-- Restrict unauthorized document access.
-- Prevent viewers from editing documents.
-- Implement permission granting and revocation.
-- Ensure immediate access denial after permission revocation.
-- Prevent unshared users from accessing documents.
+### Dashboard and Admin
+- Updated dashboard UI and CSS.
+- Dynamic document rendering.
+- Loading, empty and error states.
+- Admin dashboard and API.
+- Admin API tests.
 
-## Secure Document Management
-
-### Completed
-- Implement document upload API.
-- Add filename sanitization.
-- Enforce maximum file size.
-- Validate supported file types.
-- Validate uploaded file signatures.
-- Implement secure document downloads.
-- Add owned and shared document listing.
-- Handle unauthorized document requests.
-
-## Audit Logging
-
-### Completed
-- Create AuditLog database model.
-- Add audit_logs database table.
-- Implement centralized audit logging service.
-- Record successful document uploads.
-- Record successful document download requests.
-- Record permission grants.
-- Record permission updates.
-- Record permission revocations.
-- Store actor, document, action, outcome, details and IP address.
-- Add audit logging unit tests.
+### Audit Logging
+- AuditLog model and database table.
+- Centralized audit logging.
+- Upload, download-request and permission activity logging.
 
 ## Testing
+- Full test suite: 22 passed.
+- 2 FastAPI deprecation warnings.
+- Command: python -m pytest -q
 
-### Completed
-- Add authorization service tests.
-- Add document API integration tests.
-- Add audit logging tests.
-- Verify permission revocation behavior.
-- Verify document upload and download.
-- Verify permission grant and revoke.
-- Verify unauthenticated access rejection.
-- Pass all 13 automated tests.
+## Latest Git Commit
+- Branch: main
+- Commit: e87a7ce
+- Message: feat: improve SecureDoc UI and document sharing management
+- Files committed: 14
 
-## Pending Implementation
-
-- Denied document access tracking.
-- Denied permission attempt tracking.
-- Document edit and deletion audit tracking.
+## Pending Work
+- Denied access audit logging.
 - Append-only audit protection.
-- Admin activity API.
-- Admin dashboard.
+- Admin authorization review.
 - AI permission suggestions with owner approval.
-- Final security testing.
+- Login rate limiting.
+- XSS and SQL injection security testing.
+- Production security verification.
+- FastAPI lifespan migration.
+- Review unstaged deletion of app/_init_.py.
+
+## Limitations
+- Complete document editing is not confirmed.
+- Malware scanning is not confirmed.
+- Production security hardening remains pending.
