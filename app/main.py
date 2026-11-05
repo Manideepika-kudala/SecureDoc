@@ -2,14 +2,21 @@
 import os
 from starlette.middleware.sessions import SessionMiddleware
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.database import create_tables
+from app.database import create_tables, get_db
+from sqlalchemy.orm import Session
+from fastapi import HTTPException
+from app.models.document import Document
+from app.services.authorization import get_current_active_user
+from app.models.user import User
+from app.services.authorization import get_current_admin_user
 from app.routers.auth import router as auth_router
 from app.routers.documents import router as documents_router
+from app.routers.admin import router as admin_router
 
 BASE_DIR = Path("app").resolve()
 
@@ -49,6 +56,7 @@ def startup():
 
 app.include_router(auth_router)
 app.include_router(documents_router)
+app.include_router(admin_router)
 
 
 @app.get("/")
@@ -86,5 +94,45 @@ def dashboard(request: Request):
         request=request,
         name="dashboard.html",
         context={"username": request.session.get("username", "User")}
+    )
+
+
+
+@app.get("/share/{document_id}")
+def share_page(
+    request: Request,
+    document_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    document = db.get(Document, document_id)
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.owner_id != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the document owner can manage sharing"
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="share.html",
+        context={
+            "document_id": document.id,
+            "document_name": document.original_filename
+        }
+    )
+
+@app.get("/admin/dashboard")
+def admin_dashboard(
+    request: Request,
+    admin: User = Depends(get_current_admin_user)
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_dashboard.html",
+        context={"username": admin.username}
     )
 

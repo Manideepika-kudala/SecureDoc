@@ -1,6 +1,7 @@
-﻿import pytest
+import pytest
 
 from sqlalchemy import create_engine, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -21,6 +22,24 @@ def db():
     )
 
     Base.metadata.create_all(bind=engine)
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql("""
+            CREATE TRIGGER prevent_audit_log_update
+            BEFORE UPDATE ON audit_logs
+            BEGIN
+                SELECT RAISE(ABORT, 'Audit logs are append-only');
+            END;
+        """)
+
+        connection.exec_driver_sql("""
+            CREATE TRIGGER prevent_audit_log_delete
+            BEFORE DELETE ON audit_logs
+            BEGIN
+                SELECT RAISE(ABORT, 'Audit logs are append-only');
+            END;
+        """)
+
     TestingSession = sessionmaker(bind=engine)
 
     session = TestingSession()
@@ -104,3 +123,38 @@ def test_invalid_outcome_is_rejected(db):
             action="document_access",
             outcome="unknown",
         )
+
+
+
+def test_audit_log_cannot_be_updated(db):
+    event = record_audit_event(
+        db=db,
+        action="document_access",
+        outcome="denied",
+        details={"reason": "unauthorized"},
+    )
+    db.commit()
+
+    event.outcome = "success"
+
+    with pytest.raises(IntegrityError, match="Audit logs are append-only"):
+        db.commit()
+
+    db.rollback()
+
+
+def test_audit_log_cannot_be_deleted(db):
+    event = record_audit_event(
+        db=db,
+        action="document_access",
+        outcome="denied",
+        details={"reason": "unauthorized"},
+    )
+    db.commit()
+
+    db.delete(event)
+
+    with pytest.raises(IntegrityError, match="Audit logs are append-only"):
+        db.commit()
+
+    db.rollback()

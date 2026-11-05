@@ -1,0 +1,512 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureDoc | Share Document</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+
+    <style>
+        body {
+            background: #F5F0E8;
+            min-height: 100vh;
+            color: #24142F;
+        }
+
+        .header {
+            background: #24142F;
+            color: white;
+            padding: 20px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: 35px auto;
+            padding: 0 20px;
+        }
+
+        .panel {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px #00000010;
+        }
+
+        h2 {
+            margin-bottom: 18px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 15px;
+        }
+
+        button {
+            background: #C8754D;
+            color: white;
+            border: none;
+            padding: 11px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .user-item, .permission-item {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .user-details p, .permission-details p {
+            color: #817780;
+            font-size: 13px;
+            margin-top: 5px;
+            overflow-wrap: anywhere;
+        }
+
+        .selected {
+            border: 2px solid #C8754D;
+            background: #fffaf6;
+        }
+
+        .user-select {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .user-select input {
+            width: auto;
+        }
+
+        .permission-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .permission-controls select {
+            width: auto;
+            min-width: 110px;
+        }
+
+        .remove-button {
+            background: #a83232;
+        }
+
+        .message {
+            margin-top: 15px;
+            font-weight: 500;
+        }
+
+        .empty {
+            color: #817780;
+            padding: 15px 0;
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #24142F;
+            text-decoration: none;
+        }
+
+        @media(max-width: 600px) {
+            .panel {
+                padding: 18px;
+            }
+
+            .header {
+                padding: 16px 5%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header class="header">
+    <h2>SecureDoc</h2>
+    <a href="/dashboard">Dashboard</a>
+</header>
+
+<main class="container">
+
+    <a href="/dashboard" class="back-button">← Back to Dashboard</a>
+
+    <section class="panel">
+        <h2>Share Document</h2>
+
+        <p>Document: <strong>{{ document_name }}</strong></p>
+
+        <form id="search-form">
+            <label for="user-search">
+                Find people using username or email
+            </label>
+
+            <input
+                type="search"
+                id="user-search"
+                placeholder="Enter username or email..."
+                minlength="2"
+                required
+            >
+
+            <button type="submit" id="search-button">
+                Search Users
+            </button>
+        </form>
+
+        <div id="search-results">
+            <p class="empty">Search for a registered SecureDoc user.</p>
+        </div>
+
+        <div id="share-controls" hidden>
+            <h3>Selected User</h3>
+
+            <div id="selected-user"></div>
+
+            <label for="access-level">Permission</label>
+
+            <select id="access-level">
+                <option value="viewer">Viewer - View and Download</option>
+                <option value="editor">Editor - Editing access</option>
+            </select>
+
+            <button type="button" id="share-button">
+                Share Document
+            </button>
+        </div>
+
+        <p id="share-message" class="message" role="status"></p>
+    </section>
+
+    <section class="panel">
+        <h2>People With Access</h2>
+
+        <div id="permissions-list">
+            <p class="empty">Loading permissions...</p>
+        </div>
+
+        <p id="permissions-message" class="message" role="status"></p>
+    </section>
+
+</main>
+
+<script>
+    const DOCUMENT_ID = {{ document_id }};
+    let selectedUser = null;
+
+    const searchResults = document.getElementById("search-results");
+    const shareControls = document.getElementById("share-controls");
+    const permissionsList = document.getElementById("permissions-list");
+
+    function message(id, text) {
+        document.getElementById(id).textContent = text;
+    }
+
+    async function apiRequest(url, options = {}) {
+        const response = await fetch(url, {
+            credentials: "same-origin",
+            ...options
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (response.status === 401) {
+            window.location.href = "/login";
+            throw new Error("Please log in again.");
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                result.detail || result.message || "Request failed"
+            );
+        }
+
+        return result;
+    }
+
+    function selectUser(user) {
+        selectedUser = user;
+
+        document.getElementById("selected-user").textContent =
+            user.username + " (" + user.email + ")";
+
+        shareControls.hidden = false;
+
+        document.querySelectorAll(".user-item").forEach(item => {
+            item.classList.remove("selected");
+        });
+
+        const selected = document.querySelector(
+            '[data-user-id="' + user.user_id + '"]'
+        );
+
+        if (selected) selected.classList.add("selected");
+    }
+
+    document.getElementById("search-form")
+        .addEventListener("submit", async event => {
+            event.preventDefault();
+
+            const query = document.getElementById("user-search")
+                .value.trim();
+
+            if (query.length < 2) {
+                message("share-message", "Enter at least 2 characters.");
+                return;
+            }
+
+            selectedUser = null;
+            shareControls.hidden = true;
+
+            searchResults.replaceChildren();
+            message("share-message", "Searching...");
+
+            try {
+                const users = await apiRequest(
+                    `/documents/${DOCUMENT_ID}/users/search?q=${encodeURIComponent(query)}`
+                );
+
+                message("share-message", "");
+
+                if (users.length === 0) {
+                    searchResults.textContent = "No matching users found.";
+                    return;
+                }
+
+                users.forEach(user => {
+                    const item = document.createElement("div");
+                    item.className = "user-item";
+                    item.dataset.userId = user.user_id;
+
+                    const details = document.createElement("div");
+                    details.className = "user-details";
+
+                    const username = document.createElement("strong");
+                    username.textContent = user.username;
+
+                    const email = document.createElement("p");
+                    email.textContent = user.email;
+
+                    details.append(username, email);
+
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.textContent = "Select";
+
+                    button.addEventListener("click", () => {
+                        selectUser(user);
+                    });
+
+                    item.append(details, button);
+                    searchResults.appendChild(item);
+                });
+
+            } catch (error) {
+                message("share-message", error.message);
+            }
+        });
+
+    document.getElementById("share-button")
+        .addEventListener("click", async () => {
+
+            if (!selectedUser) {
+                message("share-message", "Select a user first.");
+                return;
+            }
+
+            const accessLevel =
+                document.getElementById("access-level").value;
+
+            const confirmed = confirm(
+                "Share this document with " +
+                selectedUser.username +
+                " (" + selectedUser.email + ")?"
+            );
+
+            if (!confirmed) return;
+
+            const button = document.getElementById("share-button");
+            button.disabled = true;
+
+            try {
+                const result = await apiRequest(
+                    `/documents/${DOCUMENT_ID}/permissions`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            user_id: selectedUser.user_id,
+                            access_level: accessLevel
+                        })
+                    }
+                );
+
+                message("share-message", result.message);
+
+                selectedUser = null;
+                shareControls.hidden = true;
+
+                await loadPermissions();
+
+            } catch (error) {
+                message("share-message", error.message);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+    async function loadPermissions() {
+        permissionsList.replaceChildren();
+
+        try {
+            const permissions = await apiRequest(
+                `/documents/${DOCUMENT_ID}/permissions`
+            );
+
+            if (permissions.length === 0) {
+                permissionsList.textContent =
+                    "This document has not been shared yet.";
+                return;
+            }
+
+            permissions.forEach(permission => {
+                const item = document.createElement("div");
+                item.className = "permission-item";
+
+                const details = document.createElement("div");
+                details.className = "permission-details";
+
+                const username = document.createElement("strong");
+                username.textContent = permission.username;
+
+                const email = document.createElement("p");
+                email.textContent = permission.email;
+
+                const date = document.createElement("p");
+                date.textContent =
+                    "Shared: " +
+                    new Date(permission.granted_at).toLocaleString();
+
+                details.append(username, email, date);
+
+                const controls = document.createElement("div");
+                controls.className = "permission-controls";
+
+                const select = document.createElement("select");
+
+                ["viewer", "editor"].forEach(level => {
+                    const option = document.createElement("option");
+                    option.value = level;
+                    option.textContent =
+                        level.charAt(0).toUpperCase() + level.slice(1);
+
+                    if (permission.access_level === level) {
+                        option.selected = true;
+                    }
+
+                    select.appendChild(option);
+                });
+
+                const update = document.createElement("button");
+                update.textContent = "Update";
+
+                update.addEventListener("click", async () => {
+                    try {
+                        await apiRequest(
+                            `/documents/${DOCUMENT_ID}/permissions`,
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json"
+                                },
+                                body: JSON.stringify({
+                                    user_id: permission.user_id,
+                                    access_level: select.value
+                                })
+                            }
+                        );
+
+                        message(
+                            "permissions-message",
+                            "Permission updated successfully."
+                        );
+
+                        await loadPermissions();
+
+                    } catch (error) {
+                        message("permissions-message", error.message);
+                    }
+                });
+
+                const remove = document.createElement("button");
+                remove.textContent = "Remove Access";
+                remove.className = "remove-button";
+
+                remove.addEventListener("click", async () => {
+                    if (!confirm(
+                        "Remove access for " + permission.username + "?"
+                    )) return;
+
+                    try {
+                        const result = await apiRequest(
+                            `/documents/${DOCUMENT_ID}/permissions/${permission.user_id}`,
+                            { method: "DELETE" }
+                        );
+
+                        message("permissions-message", result.message);
+
+                        await loadPermissions();
+
+                    } catch (error) {
+                        message("permissions-message", error.message);
+                    }
+                });
+
+                controls.append(select, update, remove);
+                item.append(details, controls);
+                permissionsList.appendChild(item);
+            });
+
+        } catch (error) {
+            message("permissions-message", error.message);
+        }
+    }
+
+    loadPermissions();
+</script>
+
+</body>
+</html>

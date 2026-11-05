@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -7,11 +7,12 @@ from app.models.base import Base
 from app.models.user import User
 from app.models.document import Document
 from app.models.permission import DocumentPermission
+from app.models.audit import AuditLog
 from app.services.authorization import get_authorized_document
 
 
 @pytest.fixture
-def db(tmp_path):
+def db(tmp_path, monkeypatch):
     database_path = tmp_path / "test_securedoc.db"
     engine = create_engine(
         f"sqlite:///{database_path}",
@@ -20,6 +21,9 @@ def db(tmp_path):
 
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(bind=engine)
+    monkeypatch.setattr(
+        'app.services.authorization.SessionLocal', TestingSession
+    )
 
     session = TestingSession()
     try:
@@ -128,6 +132,16 @@ def test_viewer_cannot_edit_document(db, sample_data):
 
     assert error.value.status_code == 403
 
+    audit_event = db.query(AuditLog).filter_by(
+        actor_user_id=sample_data["viewer"].id,
+        document_id=sample_data["document"].id,
+        action="document_access",
+        outcome="denied"
+    ).one()
+
+    assert audit_event.details["reason"] == "insufficient_permission"
+    assert audit_event.details["required_level"] == "editor"
+
 
 def test_revoked_permission_is_denied_immediately(db, sample_data):
     db.delete(sample_data["viewer_permission"])
@@ -141,6 +155,15 @@ def test_revoked_permission_is_denied_immediately(db, sample_data):
         )
 
     assert error.value.status_code == 403
+
+    audit_event = db.query(AuditLog).filter_by(
+        actor_user_id=sample_data["viewer"].id,
+        document_id=sample_data["document"].id,
+        action="document_access",
+        outcome="denied"
+    ).one()
+
+    assert audit_event.details["reason"] == "no_permission"
 
 
 def test_unshared_user_cannot_access_document(db, sample_data):
@@ -161,3 +184,12 @@ def test_unshared_user_cannot_access_document(db, sample_data):
         )
 
     assert error.value.status_code == 403
+
+    audit_event = db.query(AuditLog).filter_by(
+        actor_user_id=unauthorized_user.id,
+        document_id=sample_data["document"].id,
+        action="document_access",
+        outcome="denied"
+    ).one()
+
+    assert audit_event.details["reason"] == "no_permission"

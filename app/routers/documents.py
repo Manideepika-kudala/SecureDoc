@@ -1,4 +1,5 @@
-﻿from pathlib import Path
+﻿from datetime import timezone
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import (
@@ -10,7 +11,7 @@ from fastapi import (
     UploadFile,
     status
 )
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -154,7 +155,8 @@ def download_document(
         document_id=document_id,
         user=user,
         db=db,
-        required_level="viewer"
+        required_level="viewer",
+        request=request
     )
 
     file_path = (STORAGE_DIR / document.stored_filename).resolve()
@@ -183,6 +185,83 @@ def download_document(
     )
 
 
+
+
+@router.get("/{document_id}/users/search")
+def search_share_users(
+    document_id: int,
+    q: str,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    document = db.get(Document, document_id)
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the owner can search users")
+
+    query = q.strip()
+
+    if len(query) < 2:
+        raise HTTPException(status_code=400, detail="Enter at least 2 characters")
+
+    users = db.scalars(
+        select(User)
+        .where(
+            User.is_active.is_(True),
+            User.id != user.id,
+            or_(
+                User.username.ilike(f"%{query}%"),
+                User.email.ilike(f"%{query}%")
+            )
+        )
+        .order_by(User.username)
+        .limit(10)
+    ).all()
+
+    return [
+        {
+            "user_id": target.id,
+            "username": target.username,
+            "email": target.email
+        }
+        for target in users
+    ]
+
+
+@router.get("/{document_id}/permissions")
+def list_document_permissions(
+    document_id: int,
+    user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    document = db.get(Document, document_id)
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the owner can view sharing details")
+
+    permissions = db.execute(
+        select(DocumentPermission, User)
+        .join(User, DocumentPermission.user_id == User.id)
+        .where(DocumentPermission.document_id == document_id)
+        .order_by(DocumentPermission.granted_at.desc())
+    ).all()
+
+    return [
+        {
+            "user_id": target.id,
+            "username": target.username,
+            "email": target.email,
+            "access_level": permission.access_level,
+            "granted_at": permission.granted_at.isoformat()
+        }
+        for permission, target in permissions
+    ]
 
 @router.post("/{document_id}/permissions")
 def grant_document_permission(
@@ -313,29 +392,55 @@ def list_documents(
         select(Document).where(Document.owner_id == user.id)
     ).all()
 
-    shared_documents = db.scalars(
-        select(Document)
-        .join(
-            DocumentPermission,
-            DocumentPermission.document_id == Document.id
-        )
-        .where(DocumentPermission.user_id == user.id)
-    ).all()
+    result = []
 
-    documents = owned_documents + shared_documents
-
-    return [
-        {
+    for document in owned_documents:
+        result.append({
             "id": document.id,
             "filename": document.original_filename,
             "content_type": document.content_type,
             "file_size": document.file_size,
             "owner_id": document.owner_id,
-            "is_owner": document.owner_id == user.id
-        }
-        for document in documents
-    ]
+            "is_owner": True,
+            "shared_by_username": None,
+            "shared_by_email": None,
+            "shared_at": None,
+            "access_level": None
+        })
 
+    shared_permissions = db.scalars(
+        select(DocumentPermission).where(
+            DocumentPermission.user_id == user.id
+        )
+    ).all()
+
+    for permission in shared_permissions:
+        document = db.get(Document, permission.document_id)
+
+        if not document:
+            continue
+
+        shared_by = db.get(User, permission.granted_by)
+
+        shared_at = permission.granted_at
+
+        if shared_at and shared_at.tzinfo is None:
+            shared_at = shared_at.replace(tzinfo=timezone.utc)
+
+        result.append({
+            "id": document.id,
+            "filename": document.original_filename,
+            "content_type": document.content_type,
+            "file_size": document.file_size,
+            "owner_id": document.owner_id,
+            "is_owner": False,
+            "shared_by_username": shared_by.username if shared_by else "Unknown",
+            "shared_by_email": shared_by.email if shared_by else None,
+            "shared_at": shared_at.isoformat() if shared_at else None,
+            "access_level": permission.access_level
+        })
+
+    return result
 
 
 def validate_file_signature(extension: str, header: bytes) -> bool:
@@ -354,4 +459,6 @@ def validate_file_signature(extension: str, header: bytes) -> bool:
 
     validator = signatures.get(extension)
     return validator(header) if validator else False
+
+
 

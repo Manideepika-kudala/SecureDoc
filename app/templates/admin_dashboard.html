@@ -1,0 +1,127 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureDoc | Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="admin-body">
+    <aside class="admin-sidebar">
+        <a href="/" class="brand">
+            <span class="brand-icon">◆</span>
+            <span>Secure<span class="brand-light">Doc</span></span>
+        </a>
+
+        <p class="admin-menu-label">ADMINISTRATION</p>
+        <nav class="admin-nav">
+            <a href="/admin/dashboard" class="active">Overview</a>
+            <a href="#activity">Activity Logs</a>
+            <a href="#users">Users</a>
+            <a href="#documents">Documents</a>
+        </nav>
+
+        <div class="admin-sidebar-bottom">
+            <span class="admin-role">ADMINISTRATOR</span>
+            <a href="/dashboard">User Dashboard</a>
+            <button id="logout-button" type="button">Log Out</button>
+        </div>
+    </aside>
+
+    <main class="admin-main">
+        <header class="admin-topbar">
+            <div>
+                <p class="admin-breadcrumb">SecureDoc / Administration</p>
+                <h1>Admin Overview</h1>
+            </div>
+            <div class="admin-profile">
+                <span class="admin-avatar">A</span>
+                <div>
+                    <strong id="admin-username">{{ username }}</strong>
+                    <small>Administrator</small>
+                </div>
+            </div>
+        </header>
+
+        <section class="admin-welcome">
+            <div>
+                <p class="eyebrow">SECURE DOCUMENT MANAGEMENT</p>
+                <h2>Welcome back, {{ username }}.</h2>
+                <p>Monitor your platform, documents and security activity.</p>
+            </div>
+            <span class="admin-security-badge">◆ System Monitoring</span>
+        </section>
+
+        <section class="admin-stats" aria-label="Platform statistics">
+            <article class="admin-stat-card">
+                <span>Total Users</span>
+                <strong id="total-users">—</strong>
+                <small>Registered accounts</small>
+            </article>
+            <article class="admin-stat-card">
+                <span>Total Documents</span>
+                <strong id="total-documents">—</strong>
+                <small>Stored documents</small>
+            </article>
+            <article class="admin-stat-card">
+                <span>Audit Events</span>
+                <strong id="total-events">—</strong>
+                <small>Recorded activities</small>
+            </article>
+            <article class="admin-stat-card">
+                <span>Successful Events</span>
+                <strong id="successful-events">—</strong>
+                <small>Authorized activities</small>
+            </article>
+            <article class="admin-stat-card">
+                <span>Denied Events</span>
+                <strong id="denied-events">—</strong>
+                <small>Blocked activities</small>
+            </article>
+        </section>
+
+        <section class="admin-panel" id="activity">
+            <div class="admin-panel-heading">
+                <div>
+                    <p class="eyebrow">SECURITY MONITORING</p>
+                    <h2>Recent Activity</h2>
+                </div>
+                <button id="refresh-button" class="admin-refresh" type="button">
+                    Refresh
+                </button>
+            </div>
+
+            <p id="admin-message" role="status" class="admin-message">
+                Loading activity...
+            </p>
+
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Action</th>
+                            <th>User ID</th>
+                            <th>Document ID</th>
+                            <th>Outcome</th>
+                            <th>Date &amp; Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activity-table-body">
+                        <tr>
+                            <td colspan="6">Loading records...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="admin-footer">
+            <span>SecureDoc Administration</span>
+            <span>Protected Admin Workspace</span>
+        </footer>
+    </main>
+
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>
