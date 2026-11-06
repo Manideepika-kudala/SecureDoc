@@ -544,3 +544,131 @@ For future development:
 - Update the latest Git commit after each relevant documentation update.
 
 **End of Prompt Documentation**
+---
+
+## 13. Latest Implementation Records
+
+This section supersedes older pending statuses wherever the functionality has since been implemented.
+
+### PROMPT-027: Authentication Audit Logging
+
+**Category:** Security Monitoring
+
+**Reconstructed Prompt:**
+Record successful and denied registration, login and logout events through the centralized audit service. Never include passwords or password hashes in audit records.
+
+**Implementation Record:**
+Authentication audit events were integrated into the authentication routes.
+
+**Status:** Implemented.
+
+### PROMPT-028: Denied Permission Operation Logging
+
+**Category:** Authorization and Audit Logging
+
+**Reconstructed Prompt:**
+Record denied document-permission operations when a non-owner attempts to view, grant or revoke permissions. Include the relevant actor, document and action information.
+
+**Implementation Record:**
+Denied audit logging was added for permission-view, permission-grant and permission-revoke operations.
+
+**Status:** Implemented for these operations; broader denial-path coverage remains under review.
+
+### PROMPT-029: Login Rate Limiting
+
+**Category:** Authentication Security
+
+**Reconstructed Prompt:**
+Protect login endpoints against repeated authentication attempts using rate limiting. Preserve rate-limit response headers, including Retry-After.
+
+**Implementation Record:**
+Login rate limiting and targeted tests were implemented. The HTTP exception handler was updated to preserve exception headers.
+
+**Status:** Implemented with targeted testing.
+
+### PROMPT-030: CSRF Protection
+
+**Category:** Request Security
+
+**Reconstructed Prompt:**
+Integrate CSRF protection for relevant state-changing requests and provide the required frontend token handling.
+
+**Implementation Record:**
+CSRF integration, frontend token handling and focused tests were added.
+
+**Status:** Implemented; broader endpoint coverage review remains.
+
+### PROMPT-031: Secure Upload Validation
+
+**Category:** File Security
+
+**Reconstructed Prompt:**
+Validate uploaded file extensions, MIME types, signatures, file size and supported Office archive structures. Reject empty, malformed and oversized files.
+
+**Implementation Record:**
+Upload validation was extended with signature checks, size enforcement, empty-file rejection and DOCX/PPTX archive validation.
+
+**Status:** Implemented with five targeted upload-security tests.
+
+### PROMPT-032: Secure Download Response Headers
+
+**Category:** File Access Security
+
+**Reconstructed Prompt:**
+Add secure response headers to document downloads to prevent MIME sniffing and unwanted caching of private documents.
+
+**Implementation Record:**
+Download responses include X-Content-Type-Options, private no-store Cache-Control and Pragma headers.
+
+**Status:** Implemented with targeted response-header assertions.
+
+### PROMPT-033: Append-Only Audit Database Protection
+
+**Category:** Audit Integrity
+
+**Reconstructed Prompt:**
+Protect audit records against ordinary database UPDATE and DELETE operations while preserving audit history when associated users or documents are deleted.
+
+**Implementation Record:**
+SQLite triggers were added to prevent ordinary audit-record modification and deletion, with handling for associated foreign-key nullification.
+
+**Status:** Implemented at the SQLite trigger level. Direct database-file access remains outside this protection.
+
+### PROMPT-034: Structured Error Handling
+
+**Category:** API Reliability and Security
+
+**Reconstructed Prompt:**
+Implement structured validation responses, HTTP exception handling and safe unexpected-error responses. Log internal errors server-side without exposing internal details to clients.
+
+**Implementation Record:**
+Structured validation responses and HTTP/unexpected exception handlers were implemented. HTTP exception headers are preserved.
+
+**Status:** Implemented with targeted tests.
+
+### PROMPT-035: FastAPI Lifespan Management
+
+**Category:** Application Architecture
+
+**Reconstructed Prompt:**
+Replace deprecated FastAPI startup-event handling with lifespan management and preserve database initialization behavior.
+
+**Implementation Record:**
+FastAPI lifespan integration was implemented and a recorded test run completed with 47 passing tests and no warnings.
+
+**Status:** Implemented.
+
+### Current Testing Notes
+
+- Authentication audit tests: 4 passed.
+- CSRF focused tests: 4 passed.
+- Error-handling tests: 3 passed; an earlier run reported one test warning.
+- Five upload-security tests passed.
+- Secure download response-header test: 1 passed.
+- SQL injection user-search test: 1 passed.
+- Rate-limit test passed separately after the HTTP exception-header fix.
+- Document API initial run: 23 passed and 1 failed; the failed rate-limit test passed in a subsequent isolated run.
+- A fresh complete test-suite run after the latest changes remains pending.
+
+The older 22-test result elsewhere in this document is a historical result, not the latest complete-suite result.
+

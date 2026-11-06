@@ -567,3 +567,89 @@ This document should be updated whenever:
 Threats must not be marked resolved solely because a feature exists. Resolution requires appropriate implementation review and verification.
 
 **End of Security Threat Model**
+
+---
+
+## 9. Current Implementation Status and Updated Mitigations
+
+This section supersedes older threat statuses where newer implementation work has changed the security controls.
+
+| Threat | Current Control | Current Status |
+|---|---|---|
+| T01 Broken Access Control / IDOR | Centralized server-side ownership and permission checks | Implemented; broader endpoint testing remains |
+| T02 Unauthorized Document Download | Private storage and authorized download route | Implemented; expanded negative testing remains |
+| T03 Access After Permission Revocation | Current permission checks and revocation behavior | Implemented; additional operation coverage remains |
+| T04 Excessive Document Privileges | Viewer and Editor permission checks | Partially implemented; complete editing capability is not confirmed |
+| T05 Session Hijacking and Session Abuse | Session management, logout and session-version invalidation | Partially implemented; cookie and lifecycle review remains |
+| T06 Malicious File Upload | Extension, MIME, signature, size and Office archive validation | Partially implemented; malware scanning is not confirmed |
+| T07 Public Exposure of Stored Documents | Private application storage and protected download routes | Implemented at application level; filesystem and production configuration require review |
+| T08 Audit Log Tampering | SQLite triggers prevent ordinary audit UPDATE and DELETE operations | Partially implemented; direct database-file access is not protected |
+| T09 Search Information Leakage | User-search input validation and SQL injection test | Requires broader authorization and metadata review |
+| T10 SQL Injection | Parameterized ORM-based access and a passing user-search injection test | Partially tested; other query paths require review |
+| T11 Cross-Site Scripting | Template escaping checks and preliminary unsafe-rendering review | Partially reviewed; comprehensive XSS testing remains |
+| T12 Unauthorized Permission Modification | Owner checks and denied audit events for non-owner permission actions | Implemented for tested operations; broader tests remain |
+| T13 Incomplete Audit Trail | Authentication and document activity audit events, including tested denials | Partially implemented; complete route coverage remains |
+| T14 Brute-Force Login Attacks | Login rate limiting and targeted test | Implemented; broader abuse testing remains |
+| T15 Unsafe AI Permission Suggestions | No completed AI permission recommendation workflow confirmed | Pending |
+| T16 Administrative Privilege Escalation | Protected admin functionality and admin API tests | Implemented; additional privilege-boundary review remains |
+| T17 Sensitive Metadata Exposure | Sharing metadata and administrative response controls | Requires security review |
+
+## 10. Additional Verified Security Controls
+
+### Authentication Audit Events
+Registration, login and logout success/denial events are recorded through the centralized audit service. Passwords and password hashes are not included in audit records.
+
+### Denied Permission Operations
+Non-owner attempts to view, grant and revoke document permissions have denied audit logging.
+
+### File Upload Validation
+Targeted tests cover:
+- MIME-type mismatch.
+- Empty files.
+- Invalid DOCX archives.
+- Invalid PPTX structures.
+- Files exceeding the configured size limit.
+
+### Download Response Protection
+Download responses are checked for:
+- Attachment content disposition.
+- X-Content-Type-Options: nosniff.
+- Cache-Control: private, no-store, max-age=0.
+- Pragma: no-cache.
+
+### Rate Limiting
+The custom HTTP exception handler preserves response headers supplied by the exception, including Retry-After.
+
+### Error Handling
+Validation errors use structured responses. Unexpected server errors are logged internally and return generic client-facing messages.
+
+### Audit Database Protection
+SQLite triggers prevent ordinary UPDATE and DELETE operations on audit records. This is not equivalent to cryptographically tamper-proof or externally immutable audit storage.
+
+## 11. Remaining Security Work
+
+1. Expand IDOR and authorization tests across all protected endpoints.
+2. Verify permission boundaries for all Viewer and Editor operations.
+3. Review session-cookie security, expiration and invalidation.
+4. Evaluate malware scanning.
+5. Review filesystem permissions and storage isolation.
+6. Evaluate stronger audit integrity for direct database-file access.
+7. Expand SQL injection tests beyond user search.
+8. Complete XSS testing for dynamic and stored user-controlled content.
+9. Review CSRF coverage across state-changing endpoints.
+10. Expand denied-access audit coverage.
+11. Review administrative privilege boundaries.
+12. Review search responses and metadata exposure.
+13. Run a fresh complete test suite after recent changes.
+
+## 12. Assessment Limitations
+
+- A passing targeted test establishes only the behavior covered by that test.
+- Existing security controls do not prove the absence of all vulnerabilities.
+- Private application storage does not by itself establish secure production filesystem configuration.
+- SQLite triggers do not prevent a person with direct database-file access from replacing or modifying the database.
+- Malware scanning is not confirmed.
+- AI permission suggestions are not confirmed as implemented.
+- Complete document editing functionality is not confirmed.
+
+**End of Updated Security Assessment**
