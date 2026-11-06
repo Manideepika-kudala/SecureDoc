@@ -34,6 +34,12 @@ class User(Base):
         nullable=False
     )
 
+    session_version: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
@@ -51,3 +57,4 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+

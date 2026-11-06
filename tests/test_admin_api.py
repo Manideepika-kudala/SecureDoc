@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -37,6 +37,9 @@ def api():
     app.dependency_overrides[get_db] = override_get_db
 
     client = TestClient(app)
+    client.get('/')
+    csrf_token = client.cookies.get('csrf_token')
+    client.headers.update({'X-CSRF-Token': csrf_token})
 
     yield client, TestingSession
 
@@ -228,3 +231,43 @@ def test_unauthenticated_user_cannot_view_overview(api):
 
     assert response.status_code == 401
 
+
+
+def test_admin_activity_rejects_sql_injection_payload(api):
+    client, TestingSession = api
+
+    register_and_login(
+        client, "sqli_admin", "sqli_admin@example.com"
+    )
+
+    with TestingSession() as db:
+        admin_user = db.query(User).filter_by(
+            username="sqli_admin"
+        ).one()
+        admin_user.is_admin = True
+
+        db.add_all([
+            AuditLog(
+                actor_user_id=admin_user.id,
+                action="login",
+                outcome="success",
+                details={}
+            ),
+            AuditLog(
+                actor_user_id=admin_user.id,
+                action="document_access",
+                outcome="denied",
+                details={}
+            ),
+        ])
+        db.commit()
+
+    response = client.get(
+        "/admin/activity",
+        params={"action": "' OR 1=1 --"}
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["total"] == 0
+    assert data["items"] == []

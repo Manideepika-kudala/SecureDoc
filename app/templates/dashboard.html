@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -127,8 +127,78 @@
                 padding: 18px;
             }
         }
+
+        .editor-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: #00000099;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .editor-modal.open {
+            display: flex;
+        }
+
+        .editor-box {
+            background: white;
+            width: 100%;
+            max-width: 850px;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px #00000030;
+        }
+
+        .editor-box h2 {
+            color: #24142F;
+            margin-bottom: 15px;
+            overflow-wrap: anywhere;
+        }
+
+        #editor-content {
+            width: 100%;
+            min-height: 300px;
+            resize: vertical;
+            padding: 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font: 14px/1.5 monospace;
+            box-sizing: border-box;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .editor-actions button {
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #editor-save {
+            background: #C8754D;
+            color: white;
+        }
+
+        #editor-cancel {
+            background: #eee;
+            color: #24142F;
+        }
+
+        #editor-message {
+            margin-top: 10px;
+            color: #A95435;
+        }
     </style>
-</head>
+<script src="/static/js/csrf.js"></script></head>
 
 <body>
 
@@ -147,7 +217,13 @@
     <section class="stats">
         <h2>My Documents</h2>
         <h1 id="document-count">0</h1>
-        <p>Total accessible documents</p>
+        <p>Total uploaded documents</p>
+    </section>
+
+    <section class="stats">
+        <h2>Shared Files</h2>
+        <h1 id="shared-count">0</h1>
+        <p>Documents shared with you</p>
     </section>
 
     <section class="panel">
@@ -187,6 +263,28 @@
 
     <p id="documents-message" class="status-message" role="status"></p>
 
+
+    <section
+        id="editor-modal"
+        class="editor-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="editor-title"
+    >
+        <div class="editor-box">
+            <h2 id="editor-title">Edit Document</h2>
+            <textarea
+                id="editor-content"
+                spellcheck="false"
+                aria-label="Document text"
+            ></textarea>
+            <p id="editor-message" role="status"></p>
+            <div class="editor-actions">
+                <button id="editor-save" type="button">Save Changes</button>
+                <button id="editor-cancel" type="button">Cancel</button>
+            </div>
+        </div>
+    </section>
 </main>
 
 <script>
@@ -232,6 +330,99 @@
         empty.textContent = message;
         container.appendChild(empty);
     }
+
+
+    let editingDocumentId = null;
+
+    async function openDocumentEditor(doc) {
+        const modal = document.getElementById("editor-modal");
+        const textarea = document.getElementById("editor-content");
+        const message = document.getElementById("editor-message");
+
+        editingDocumentId = doc.id;
+        textarea.value = "";
+        message.textContent = "Loading document...";
+        modal.classList.add("open");
+
+        try {
+            const response = await fetch(
+                `/documents/${doc.id}/edit`,
+                { credentials: "same-origin" }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || "Could not load document");
+            }
+
+            textarea.value = data.content;
+            message.textContent = "";
+            textarea.focus();
+
+        } catch (error) {
+            message.textContent = error.message;
+        }
+    }
+
+    function closeDocumentEditor() {
+        document.getElementById("editor-modal").classList.remove("open");
+        document.getElementById("editor-message").textContent = "";
+        editingDocumentId = null;
+    }
+
+    async function saveDocumentEditor() {
+        if (editingDocumentId === null) return;
+
+        const saveButton = document.getElementById("editor-save");
+        const message = document.getElementById("editor-message");
+        const content = document.getElementById("editor-content").value;
+
+        saveButton.disabled = true;
+        message.textContent = "Saving...";
+
+        try {
+            const response = await fetch(
+                `/documents/${editingDocumentId}/edit`,
+                {
+                    method: "PUT",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ content })
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || "Could not save document");
+            }
+
+            closeDocumentEditor();
+            showMessage("documents-message", "Document saved successfully.");
+            await loadDocuments();
+
+        } catch (error) {
+            message.textContent = error.message;
+        } finally {
+            saveButton.disabled = false;
+        }
+    }
+
+    document.getElementById("editor-save")
+        .addEventListener("click", saveDocumentEditor);
+
+    document.getElementById("editor-cancel")
+        .addEventListener("click", closeDocumentEditor);
+
+    document.getElementById("editor-modal")
+        .addEventListener("click", event => {
+            if (event.target.id === "editor-modal") {
+                closeDocumentEditor();
+            }
+        });
 
     function createDocumentItem(doc, isShared) {
         const item = document.createElement("div");
@@ -295,7 +486,117 @@
             downloadDocument(doc.id, doc.filename);
         });
 
+        const previewButton = document.createElement("button");
+        previewButton.className = "action-btn";
+        previewButton.type = "button";
+        previewButton.textContent = "Preview";
+
+        previewButton.addEventListener("click", () => {
+            window.open(
+                `/documents/${doc.id}/preview`,
+                "_blank",
+                "noopener"
+            );
+        });
+
+        actions.appendChild(previewButton);
         actions.appendChild(downloadButton);
+
+        const canModify =
+            !isShared || doc.access_level === "editor";
+
+        if (canModify) {
+            const extension = doc.filename
+                .split(".")
+                .pop()
+                .toLowerCase();
+
+            if (extension === "txt") {
+                const editButton = document.createElement("button");
+                editButton.className = "action-btn";
+                editButton.type = "button";
+                editButton.textContent = "Edit";
+
+                editButton.addEventListener("click", () => {
+                    openDocumentEditor(doc);
+                });
+
+                actions.appendChild(editButton);
+            } else {
+                const replaceButton = document.createElement("button");
+                replaceButton.className = "action-btn";
+                replaceButton.type = "button";
+                replaceButton.textContent = "Replace File";
+
+                const fileInput = document.createElement("input");
+                fileInput.type = "file";
+                fileInput.accept = `.${extension}`;
+                fileInput.hidden = true;
+
+                replaceButton.addEventListener("click", () => {
+                    fileInput.click();
+                });
+
+                fileInput.addEventListener("change", async () => {
+                    const selectedFile = fileInput.files[0];
+                    if (!selectedFile) return;
+
+                    const mimeTypes = {
+                        pdf: "application/pdf",
+                        png: "image/png",
+                        jpg: "image/jpeg",
+                        jpeg: "image/jpeg",
+                        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        ppt: "application/vnd.ms-powerpoint",
+                        pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    };
+
+                    const formData = new FormData();
+                    const replacement = new Blob(
+                        [selectedFile],
+                        { type: mimeTypes[extension] }
+                    );
+
+                    formData.append("file", replacement, selectedFile.name);
+
+                    replaceButton.disabled = true;
+                    replaceButton.textContent = "Replacing...";
+
+                    try {
+                        const response = await fetch(
+                            `/documents/${doc.id}/replace`,
+                            {
+                                method: "PUT",
+                                credentials: "same-origin",
+                                body: formData
+                            }
+                        );
+
+                        const data = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(
+                                data.detail || "File replacement failed"
+                            );
+                        }
+
+                        alert("File replaced successfully!");
+                        await loadDocuments();
+
+                    } catch (error) {
+                        alert(error.message);
+                    } finally {
+                        replaceButton.disabled = false;
+                        replaceButton.textContent = "Replace File";
+                        fileInput.value = "";
+                    }
+                });
+
+                actions.append(replaceButton, fileInput);
+            }
+        }
+
+
 
         if (!isShared) {
             const shareButton = document.createElement("button");
@@ -339,6 +640,9 @@
 
             document.getElementById("document-count").textContent =
                 myDocuments.length;
+
+            document.getElementById("shared-count").textContent =
+                sharedDocuments.length;
 
             myDocuments.forEach(doc => {
                 myDocumentsList.appendChild(createDocumentItem(doc, false));

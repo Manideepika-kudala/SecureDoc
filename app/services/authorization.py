@@ -25,7 +25,11 @@ def get_current_active_user(
         select(User).where(User.id == user_id)
     )
 
-    if not user or not user.is_active:
+    if (
+        not user
+        or not user.is_active
+        or request.session.get("session_version") != user.session_version
+    ):
         request.session.clear()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
