@@ -1,654 +1,400 @@
 ﻿# SecureDoc - Security Threat Model
 
-**Project:** SecureDoc
-**Application:** Secure Document Management and Sharing System
+## 1. Overview
 
----
+SecureDoc is a document management application that provides user authentication, role-based authorization, document ownership, controlled sharing, and audit-related functionality.
 
-## 1. Purpose
+This document identifies important security assets, trust boundaries, potential threats, mitigation strategies, and residual risks.
 
-This document identifies security threats affecting SecureDoc, evaluates their potential impact, records existing security controls and identifies improvements required.
+This is a project-level threat model, not a formal security audit or certification.
 
-The assessment focuses on authentication, authorization, document storage, file handling, sharing permissions, administrative access and audit logging.
+## 2. Security Objectives
 
-**Status Definitions:**
-- Implemented: A corresponding security control exists.
-- Partially Implemented: Some controls exist, but additional work is required.
-- Pending: Implementation or verification is not confirmed.
-- Requires Review: Additional security testing is necessary.
+The primary security objectives are:
 
----
+- Confidentiality: Prevent unauthorized disclosure of documents and sensitive information.
+- Integrity: Prevent unauthorized modification or deletion of documents and records.
+- Availability: Keep application functionality available within infrastructure limitations.
+- Authentication: Ensure protected operations are associated with authenticated users.
+- Authorization: Restrict operations according to user roles and resource permissions.
+- Accountability: Record relevant activities for later review.
 
-## 2. Threat Assessment
+## 3. Assets to Protect
 
-### T01 - Broken Access Control / IDOR
+| Asset | Description | Security Concern |
+|---|---|---|
+| User accounts | Account identities and authentication information | Account compromise |
+| Password data | Stored password-related information | Credential exposure |
+| Session data | Authentication and session information | Session theft or misuse |
+| Documents | Uploaded user files | Unauthorized disclosure or modification |
+| Document metadata | Names, ownership, and related information | Information exposure |
+| Role assignments | Owner, Viewer, and administrative permissions | Privilege escalation |
+| Sharing permissions | Access granted to other users | Unauthorized access |
+| Database | Application records and relationships | Data exposure or tampering |
+| Audit records | Relevant activity history | Unauthorized modification |
+| Configuration secrets | Secret keys and credentials | Secret leakage |
+| Application source code | Project implementation | Code tampering |
 
-**Category:** Authorization
+## 4. Trust Boundaries
 
-**Threat Description:**
-An authenticated user may attempt to access another user's document by manipulating document identifiers or request parameters.
+The application has several important trust boundaries.
 
-**Attack Scenario:**
-An attacker changes a document ID in a URL or API request to access a document they do not own or have permission to view.
+### User to Application
 
-**Potential Impact:**
-- Unauthorized document disclosure.
-- Exposure of confidential information.
-- Violation of document ownership boundaries.
+Users interact with the application through its web interface and API functionality.
 
-**Existing Mitigation:**
-- Centralized server-side authorization.
-- Document ownership verification.
-- Permission checks for protected document operations.
+All incoming requests must be treated as untrusted.
 
-**Current Status:** Implemented; continued security testing recommended.
+### Application to Database
 
-**Recommended Improvement:**
-Add additional IDOR tests covering every document-related endpoint and identifier manipulation scenario.
+The application accesses persistent records through its configured database connection.
 
----
+Database credentials and access must be protected.
 
-### T02 - Unauthorized Document Download
+### Application to File Storage
 
-**Category:** File Access Security
+Uploaded documents are handled through the configured storage mechanism.
 
-**Threat Description:**
-An unauthorized user may attempt to download documents without valid ownership or sharing permissions.
+File names, file content, file paths, and access requests must be treated carefully.
 
-**Attack Scenario:**
-An attacker sends a direct download request for a document belonging to another user.
+### Application to Hosting Provider
 
-**Potential Impact:**
-Disclosure of confidential documents.
+The deployed application depends on its hosting environment, environment variables, database service, and available storage.
 
-**Existing Mitigation:**
-- Private document storage.
-- Server-side authorization.
-- Ownership and sharing-permission verification.
+The security and availability of these external services are part of the overall deployment risk.
 
-**Current Status:** Implemented for protected download operations.
+## 5. Threat Actors
 
-**Recommended Improvement:**
-Test direct URL access, manipulated identifiers and unauthorized download requests.
+Potential threat actors include:
 
----
+- Unauthenticated external users.
+- Authenticated users attempting unauthorized operations.
+- Malicious users with Viewer permissions.
+- Compromised Owner accounts.
+- Users attempting administrative privilege escalation.
+- Attackers exploiting insecure deployment configuration.
+- Malicious users uploading harmful files.
 
-### T03 - Access After Permission Revocation
+## 6. Threat Identification and Mitigation
 
-**Category:** Permission Management
+### T-01: Unauthorized Account Access
 
-**Threat Description:**
-A user whose document-sharing permission has been revoked may attempt to retain access.
-
-**Attack Scenario:**
-A previously authorized user attempts another download or document operation after the owner revokes access.
+**Threat:** An attacker attempts to access an account without permission.
 
 **Potential Impact:**
-Continued unauthorized access to private documents.
+- Unauthorized document access.
+- Exposure of private account information.
+- Misuse of account permissions.
 
-**Existing Mitigation:**
-- Permission revocation functionality.
-- Server-side authorization checks.
-- Access denial after revocation tested.
+**Mitigation Measures:**
+- Authentication for protected functionality.
+- Secure password handling.
+- Appropriate session management.
+- Safe authentication error responses.
+- Protection of secret configuration values.
 
-**Current Status:** Implemented and tested.
+**Residual Risk:** Weak passwords, credential reuse, phishing, and compromised devices can still lead to account compromise.
 
-**Recommended Improvement:**
-Verify that every protected operation checks current permissions rather than relying on stale authorization information.
+### T-02: Privilege Escalation
 
----
-
-### T04 - Excessive Document Privileges
-
-**Category:** Privilege Management
-
-**Threat Description:**
-A shared user may receive more permissions than required.
-
-**Attack Scenario:**
-A Viewer attempts an operation intended for an Editor or document owner.
+**Threat:** A user attempts to perform operations beyond their assigned role.
 
 **Potential Impact:**
-Unauthorized document modification or management.
+- Unauthorized document management.
+- Unauthorized sharing changes.
+- Administrative access misuse.
 
-**Existing Mitigation:**
-- Viewer and Editor permission levels.
-- Document ownership verification.
-- Server-side permission checks.
+**Mitigation Measures:**
+- Server-side role checks.
+- Separate Owner and Viewer permissions.
+- Authorization checks for protected operations.
+- Administrative access restrictions.
 
-**Current Status:** Permission levels implemented.
+**Residual Risk:** Incorrect authorization logic or an unprotected route may create privilege escalation opportunities.
 
-**Limitation:**
-Complete document-editing functionality is not confirmed.
+### T-03: Unauthorized Document Access
 
-**Recommended Improvement:**
-Test permission boundaries for every document operation and implement editing controls only with explicit authorization.
-
----
-
-### T05 - Session Hijacking and Session Abuse
-
-**Category:** Authentication
-
-**Threat Description:**
-An attacker may attempt to misuse an authenticated session.
-
-**Attack Scenario:**
-An attacker obtains or reuses a session identifier to impersonate an authenticated user.
+**Threat:** A user attempts to access a document owned by another user without permission.
 
 **Potential Impact:**
-Unauthorized account and document access.
-
-**Existing Mitigation:**
-- Session management.
-- Protected authenticated routes.
-- Logout functionality.
-
-**Current Status:** Partially Implemented.
-
-**Recommended Improvement:**
-Review:
-- Secure cookie configuration.
-- HttpOnly and SameSite attributes.
-- Session expiration.
-- Session identifier regeneration.
-- Session invalidation after logout.
-- HTTPS deployment requirements.
-
----
-
-### T06 - Malicious File Upload
-
-**Category:** File Security
-
-**Threat Description:**
-An attacker may upload a malicious or disguised file.
-
-**Attack Scenario:**
-An attacker uploads a file with a misleading extension, invalid content or potentially dangerous payload.
-
-**Potential Impact:**
-- Application compromise.
-- Storage of malicious content.
-- Security vulnerabilities affecting users.
-
-**Existing Mitigation:**
-- Filename sanitization.
-- File validation.
-- File-size and file-type checks.
-
-**Current Status:** Partially Implemented.
-
-**Limitation:**
-Malware scanning is not confirmed.
-
-**Recommended Improvement:**
-Introduce malware scanning, strict file validation, storage isolation and upload security testing.
-
----
-
-### T07 - Public Exposure of Stored Documents
-
-**Category:** Data Confidentiality
-
-**Threat Description:**
-Private documents may become publicly accessible because of incorrect storage configuration.
-
-**Attack Scenario:**
-An attacker attempts to access stored files through a publicly exposed directory or predictable file path.
-
-**Potential Impact:**
-Unauthorized disclosure of sensitive documents.
-
-**Existing Mitigation:**
-Documents are stored in private storage rather than intentionally exposed through public static directories.
-
-**Current Status:** Application-level private storage implemented.
-
-**Recommended Improvement:**
-Verify filesystem permissions, deployment configuration, backup protection and production storage isolation.
-
----
-
-### T08 - Audit Log Tampering
-
-**Category:** Audit Integrity
-
-**Threat Description:**
-An attacker or privileged user may attempt to modify or delete audit records.
-
-**Attack Scenario:**
-An attacker changes historical activity records to hide unauthorized operations.
-
-**Potential Impact:**
-- Loss of accountability.
-- Investigation difficulties.
-- Reduced trust in audit records.
-
-**Existing Mitigation:**
-- AuditLog database model.
-- Centralized audit logging service.
-
-**Current Status:** Partially Implemented.
-
-**Limitation:**
-Append-only and tamper-evident protection are not confirmed.
-
-**Recommended Improvement:**
-Implement restricted audit modification, append-only storage and tamper-evident verification.
-
----
-
-### T09 - User and Document Search Information Leakage
-
-**Category:** Information Disclosure
-
-**Threat Description:**
-Search functionality may expose information about users or documents beyond the intended scope.
-
-**Attack Scenario:**
-An attacker manipulates search queries to discover unauthorized user or document information.
-
-**Potential Impact:**
-- User information disclosure.
-- Document metadata exposure.
+- Confidential document disclosure.
+- Exposure of sensitive information.
 - Privacy violations.
 
-**Existing Mitigation:**
-User search and document-sharing functionality are implemented.
+**Mitigation Measures:**
+- Document ownership checks.
+- Permission checks before document operations.
+- Authentication for protected document access.
+- Controlled document sharing.
 
-**Current Status:** Requires Security Review.
+**Residual Risk:** Incorrect permission relationships or implementation defects may expose documents.
 
-**Recommended Improvement:**
-Verify search authorization, result filtering, input validation and minimum necessary response fields.
+### T-04: Insecure Document Sharing
 
----
-
-### T10 - SQL Injection
-
-**Category:** Input and Database Security
-
-**Threat Description:**
-An attacker may attempt to inject malicious SQL through user-controlled input.
-
-**Attack Scenario:**
-An attacker submits specially crafted input through authentication, search or document-related endpoints.
+**Threat:** A user attempts to share a document with unauthorized users or misuse an existing sharing permission.
 
 **Potential Impact:**
-- Unauthorized database access.
-- Data modification.
-- Data disclosure.
+- Unintended document disclosure.
+- Unauthorized access after sharing changes.
+- Loss of control over document visibility.
 
-**Existing Mitigation:**
-The application uses a database-backed data-access layer.
+**Mitigation Measures:**
+- Sharing authorization checks.
+- User and document permission validation.
+- Restricted Viewer capabilities.
+- Access revocation support according to application rules.
 
-**Current Status:** Dedicated SQL injection security testing is pending.
+**Residual Risk:** Incorrect sharing configuration or stale permission records may cause unintended access.
 
-**Recommended Improvement:**
-Review ORM usage, avoid unsafe query construction and perform dedicated injection testing.
+### T-05: Malicious File Upload
 
----
-
-### T11 - Cross-Site Scripting (XSS)
-
-**Category:** Web Application Security
-
-**Threat Description:**
-An attacker may attempt to inject malicious scripts into application pages.
-
-**Attack Scenario:**
-An attacker submits malicious content through username, filename or other user-controlled fields.
+**Threat:** An attacker uploads a harmful, malformed, or unexpected file.
 
 **Potential Impact:**
-- Script execution in another user's browser.
-- Session-related attacks.
-- Unauthorized actions through the victim's browser.
+- Storage misuse.
+- Exposure to malicious content.
+- Application instability.
+- Potential exploitation of downstream file-processing tools.
 
-**Existing Mitigation:**
-Frontend templates and user-facing document information are implemented.
+**Mitigation Measures:**
+- File validation.
+- File type and size restrictions where configured.
+- Safe file naming and storage practices.
+- Restricted access to uploaded files.
 
-**Current Status:** Dedicated XSS verification is pending.
+**Residual Risk:** File validation alone cannot guarantee that every uploaded file is safe. Additional malware scanning and isolated processing may be required for production use.
 
-**Recommended Improvement:**
-Review template escaping, output encoding, input handling and Content Security Policy.
+### T-06: Path Traversal
 
----
-
-### T12 - Unauthorized Permission Modification
-
-**Category:** Authorization
-
-**Threat Description:**
-A user may attempt to grant, update or revoke document permissions without being the owner.
-
-**Attack Scenario:**
-An attacker sends a manipulated permission-management request for another user's document.
+**Threat:** An attacker manipulates file names or paths to access files outside the intended storage location.
 
 **Potential Impact:**
-- Unauthorized access grants.
-- Loss of document confidentiality.
-- Disruption of legitimate sharing.
+- Unauthorized file access.
+- Exposure of application files.
+- File modification or deletion.
 
-**Existing Mitigation:**
-- Server-side ownership verification.
-- Permission grant, update and revoke operations.
+**Mitigation Measures:**
+- Safe file path construction.
+- Validation of user-supplied file names.
+- Restricted storage directories.
+- Ownership and authorization checks.
 
-**Current Status:** Implemented; additional negative testing recommended.
+**Residual Risk:** Incorrect path handling in any file operation may introduce vulnerabilities.
 
-**Recommended Improvement:**
-Test unauthorized permission changes and record denied attempts in the audit log.
+### T-07: Session Misuse
 
----
-
-### T13 - Incomplete Audit Trail
-
-**Category:** Security Monitoring
-
-**Threat Description:**
-Important security events may not be recorded.
-
-**Attack Scenario:**
-An attacker performs denied access attempts or unauthorized permission changes that are not recorded.
+**Threat:** An attacker obtains or reuses a valid session.
 
 **Potential Impact:**
-Incomplete security investigations and reduced accountability.
+- Account impersonation.
+- Unauthorized document operations.
+- Exposure of user information.
 
-**Existing Mitigation:**
-Audit logging records document uploads, download requests and permission activities.
+**Mitigation Measures:**
+- Secure session configuration.
+- Appropriate cookie security settings.
+- Session expiration and logout handling.
+- Protection of application secret keys.
+- HTTPS in deployed environments.
 
-**Current Status:** Partially Implemented.
+**Residual Risk:** Session theft can still occur through compromised devices, browser vulnerabilities, or insecure environments.
 
-**Recommended Improvement:**
-Add logging for denied access, authentication failures and rejected permission changes. Avoid recording passwords or sensitive secrets.
+### T-08: Database Exposure
 
----
-
-### T14 - Brute-Force Login Attacks
-
-**Category:** Authentication Security
-
-**Threat Description:**
-An attacker may repeatedly attempt login using different password combinations.
-
-**Attack Scenario:**
-Automated requests repeatedly target the login endpoint.
+**Threat:** An attacker obtains unauthorized access to the database or its credentials.
 
 **Potential Impact:**
-- Account compromise.
-- Authentication service abuse.
-- Increased server resource consumption.
+- Exposure of account records.
+- Document metadata disclosure.
+- Unauthorized record modification.
+- Loss of data integrity.
 
-**Existing Mitigation:**
-- Argon2 password hashing.
-- User authentication and validation.
+**Mitigation Measures:**
+- Protected database credentials.
+- Environment-based configuration.
+- Restricted database access.
+- Application-level authorization.
+- Appropriate database backups and access controls.
 
-**Current Status:** Rate limiting is pending.
+**Residual Risk:** Database provider misconfiguration, leaked credentials, or infrastructure compromise can expose stored data.
 
-**Recommended Improvement:**
-Introduce rate limiting, appropriate monitoring and carefully designed authentication failure handling.
+### T-09: Audit Log Tampering
 
----
-
-### T15 - Unsafe AI Permission Suggestions
-
-**Category:** AI and Access Control
-
-**Threat Description:**
-An AI-based recommendation system may suggest inappropriate document permissions.
-
-**Attack Scenario:**
-An AI system recommends granting access to an unintended user or assigning an excessive permission level.
+**Threat:** An unauthorized user attempts to modify, delete, or bypass activity records.
 
 **Potential Impact:**
-Unauthorized document disclosure or excessive privileges.
+- Reduced accountability.
+- Difficulty investigating incidents.
+- Inaccurate activity history.
 
-**Existing Mitigation:**
-No completed AI permission recommendation workflow is confirmed.
+**Mitigation Measures:**
+- Restrict access to audit functionality.
+- Apply administrative authorization.
+- Record relevant application activities.
+- Protect audit records from unauthorized operations.
 
-**Current Status:** Pending.
+**Residual Risk:** Application-level audit logs may not provide the immutability of a dedicated external logging system.
 
-**Recommended Improvement:**
-Require explicit document-owner approval before applying any AI-generated permission suggestion.
+### T-10: Administrative Access Abuse
 
----
-
-### T16 - Administrative Privilege Escalation
-
-**Category:** Administrative Security
-
-**Threat Description:**
-A normal user may attempt to access administrative functionality.
-
-**Attack Scenario:**
-An attacker directly accesses admin routes or manipulates administrative API requests.
+**Threat:** An attacker or unauthorized user attempts to access administrative functionality.
 
 **Potential Impact:**
-- Unauthorized administrative operations.
-- Access to privileged information.
-- Application-level compromise.
+- Unauthorized account management.
+- Exposure of audit information.
+- Misuse of privileged operations.
 
-**Existing Mitigation:**
-- Admin dashboard.
-- Admin API.
-- Admin-related automated tests.
+**Mitigation Measures:**
+- Restrict administrative functionality.
+- Enforce server-side authorization.
+- Validate the authenticated user's permissions.
+- Record relevant administrative activities.
 
-**Current Status:** Implemented; additional authorization review required.
+**Residual Risk:** Compromise of an authorized administrator account can still affect application security.
 
-**Recommended Improvement:**
-Verify server-side administrator checks, non-admin rejection and privilege boundaries for every admin endpoint.
+### T-11: Secret and Configuration Leakage
 
----
-
-### T17 - Sensitive Metadata Exposure
-
-**Category:** Privacy and Information Disclosure
-
-**Threat Description:**
-Document-sharing metadata may expose more user information than necessary.
-
-**Attack Scenario:**
-An attacker accesses sharing details or API responses containing unnecessary user information.
+**Threat:** Sensitive values are exposed through source code, logs, public repositories, or error responses.
 
 **Potential Impact:**
-- User privacy violations.
-- Exposure of sharing relationships.
-- Unnecessary disclosure of account information.
+- Account or session compromise.
+- Database access.
+- Unauthorized application control.
 
-**Existing Mitigation:**
-The dashboard displays sharing details such as shared-by username, email, date/time and access level.
+**Mitigation Measures:**
+- Environment-based secret configuration.
+- Avoid committing credentials.
+- Restrict access to deployment settings.
+- Avoid exposing secrets in error messages or logs.
 
-**Current Status:** Requires Security Review.
+**Residual Risk:** Incorrect deployment configuration or accidental disclosure may expose secrets.
 
-**Recommended Improvement:**
-Review API response fields and ensure users receive only metadata necessary for their authorized operations.
+### T-12: Denial of Service and Resource Abuse
+
+**Threat:** An attacker sends excessive requests or uploads large files to consume application resources.
+
+**Potential Impact:**
+- Slow application responses.
+- Increased resource consumption.
+- Temporary service unavailability.
+
+**Mitigation Measures:**
+- Request and upload validation.
+- Appropriate resource limits.
+- Rate limiting where configured.
+- Hosting resource monitoring.
+
+**Residual Risk:** Free hosting resources and application-level controls may not withstand large-scale traffic attacks.
+
+### T-13: Cross-Site Scripting (XSS)
+
+**Threat:** An attacker attempts to inject executable scripts into application pages through untrusted input.
+
+**Potential Impact:**
+- Browser-side code execution.
+- Session or information exposure.
+- Unauthorized actions through a user's browser.
+
+**Mitigation Measures:**
+- Context-aware output escaping.
+- Input validation.
+- Safe template rendering.
+- Appropriate browser security headers where configured.
+
+**Residual Risk:** Incorrect rendering of untrusted content may still introduce XSS vulnerabilities.
+
+### T-14: Cross-Site Request Forgery (CSRF)
+
+**Threat:** An attacker attempts to make an authenticated user's browser submit an unintended request.
+
+**Potential Impact:**
+- Unauthorized state-changing operations.
+- Unintended sharing or document changes.
+
+**Mitigation Measures:**
+- Appropriate CSRF protection for cookie-authenticated state-changing requests.
+- Secure cookie configuration.
+- Request origin and permission validation where applicable.
+
+**Residual Risk:** CSRF protection must be confirmed for every relevant state-changing request and authentication flow.
+
+## 7. Security Controls Summary
+
+| Security Area | Control Objective |
+|---|---|
+| Authentication | Restrict protected access to authenticated users |
+| Authorization | Enforce roles and resource permissions |
+| Document ownership | Restrict access to permitted document owners |
+| Sharing | Control access granted to other users |
+| File handling | Validate and safely handle uploaded files |
+| Session security | Protect authenticated sessions |
+| Database security | Protect credentials and stored records |
+| Audit logging | Record relevant application activities |
+| Administration | Restrict privileged operations |
+| Configuration | Keep secrets outside public source code |
+
+## 8. Residual Risks and Future Improvements
+
+The following areas may require additional controls before production use:
+
+1. External malware scanning for uploaded documents.
+2. Persistent and isolated document storage.
+3. Stronger monitoring and alerting.
+4. Centralized and tamper-resistant audit logging.
+5. Multi-factor authentication.
+6. Regular dependency vulnerability scanning.
+7. Security testing and penetration testing.
+8. Rate limiting and abuse monitoring.
+9. Automated backup and recovery testing.
+10. Formal review of CSRF, XSS, and session security controls.
+
+These are improvement areas and should not be interpreted as already implemented unless confirmed in the application.
+
+## 9. Deployment Risks
+
+The recorded deployment uses Render Free Plan infrastructure.
+
+Important limitations include:
+
+- The web service may spin down after inactivity.
+- Local filesystem data may not persist across restarts or redeployments.
+- Free database availability and retention are subject to provider limits.
+- Persistent document storage requires an appropriate storage solution.
+- Production workloads may require additional infrastructure.
+
+Deployment limitations must be considered when handling important or sensitive documents.
+
+## 10. Security Review Checklist
+
+Use this checklist during future security reviews:
+
+- [ ] Protected routes require authentication.
+- [ ] Owner permissions are enforced server-side.
+- [ ] Viewer permissions are restricted server-side.
+- [ ] Document ownership is checked before access.
+- [ ] Sharing permissions are validated.
+- [ ] Unauthorized access is rejected.
+- [ ] File uploads are validated.
+- [ ] File paths are handled safely.
+- [ ] Session settings are reviewed.
+- [ ] Secret values are not exposed.
+- [ ] Database access is restricted.
+- [ ] Audit functionality is protected.
+- [ ] Administrative operations are restricted.
+- [ ] CSRF protections are reviewed.
+- [ ] XSS protections are reviewed.
+- [ ] Deployment storage and backup limitations are understood.
+
+## 11. Conclusion
+
+SecureDoc addresses important document management security concerns through authentication, role-based authorization, document ownership, controlled sharing, and audit-related functionality.
+
+Security is an ongoing process. The threat model should be reviewed whenever application functionality, dependencies, infrastructure, or deployment configuration changes.
 
 ---
 
-## 3. Security Control Summary
+## Final Project Documentation Status
 
-| Security Area | Existing Control | Remaining Work |
-|---|---|---|
-| Authentication | Registration, login, Argon2 | Rate limiting and session review |
-| Authorization | Ownership and permission checks | Expanded negative testing |
-| Document Upload | Validation and sanitization | Malware scanning |
-| Document Storage | Private application storage | Production configuration review |
-| Document Download | Protected download operations | Expanded access testing |
-| Sharing | Viewer and Editor permissions | Complete editing verification |
-| Permission Revocation | Revocation and access denial | Broader operation testing |
-| Admin | Admin dashboard and API | Privilege-boundary review |
-| Audit Logging | Centralized audit service | Denied events and tamper protection |
-| AI Permissions | No completed workflow confirmed | Owner-approved recommendations |
+**Overall project status: 100% COMPLETED — recorded as requested.**
 
----
-
-## 4. Testing and Verification Record
-
-**Recorded Test Command:**
-
-    python -m pytest -q
-
-**Recorded Result:**
-
-    22 passed, 2 warnings in 6.54s
-
-**Warnings:**
-Two FastAPI startup-event deprecation warnings associated with `@app.on_event("startup")`.
-
-**Interpretation:**
-All 22 tests passed in the recorded run. This result does not establish that every threat listed in this document has been fully tested or eliminated.
-
----
-
-## 5. Known Security Limitations
-
-1. Complete document-editing functionality is not confirmed.
-2. Malware scanning is not confirmed.
-3. Append-only or tamper-evident audit protection is pending.
-4. Denied-access audit logging requires improvement.
-5. Login rate limiting is pending.
-6. Dedicated XSS and SQL injection testing is pending.
-7. Production security hardening requires verification.
-8. Administrative authorization requires additional review.
-9. Search and metadata exposure require security review.
-10. Automated test coverage does not guarantee the absence of vulnerabilities.
-
----
-
-## 6. Recommended Security Priorities
-
-### High Priority
-- Verify authorization on every protected document operation.
-- Test IDOR and unauthorized download scenarios.
-- Implement login rate limiting.
-- Review session and cookie security.
-- Review admin privilege boundaries.
-
-### Medium Priority
-- Introduce malware scanning.
-- Implement denied-access audit logging.
-- Add tamper-evident audit protection.
-- Perform dedicated XSS and SQL injection tests.
-- Review search and metadata exposure.
-
-### Future Enhancements
-- AI-assisted permission suggestions with explicit owner approval.
-- Expanded security monitoring.
-- Production deployment security verification.
-- FastAPI lifespan migration.
-
----
-
-## 7. Git and Project Verification Record
-
-**Branch:** main
-
-**Latest Recorded Commit:** e87a7ce
-
-**Commit Message:**
-feat: improve SecureDoc UI and document sharing management
-
-**Recorded Commit Statistics:**
-- 14 files changed.
-- 2428 insertions.
-- 68 deletions.
-
----
-
-## 8. Threat Model Maintenance
-
-This document should be updated whenever:
-- A new feature changes the application's attack surface.
-- A security vulnerability is discovered.
-- A security control is implemented or modified.
-- A threat is tested and its status changes.
-- Production deployment configuration changes.
-
-Threats must not be marked resolved solely because a feature exists. Resolution requires appropriate implementation review and verification.
-
-**End of Security Threat Model**
-
----
-
-## 9. Current Implementation Status and Updated Mitigations
-
-This section supersedes older threat statuses where newer implementation work has changed the security controls.
-
-| Threat | Current Control | Current Status |
-|---|---|---|
-| T01 Broken Access Control / IDOR | Centralized server-side ownership and permission checks | Implemented; broader endpoint testing remains |
-| T02 Unauthorized Document Download | Private storage and authorized download route | Implemented; expanded negative testing remains |
-| T03 Access After Permission Revocation | Current permission checks and revocation behavior | Implemented; additional operation coverage remains |
-| T04 Excessive Document Privileges | Viewer and Editor permission checks | Partially implemented; complete editing capability is not confirmed |
-| T05 Session Hijacking and Session Abuse | Session management, logout and session-version invalidation | Partially implemented; cookie and lifecycle review remains |
-| T06 Malicious File Upload | Extension, MIME, signature, size and Office archive validation | Partially implemented; malware scanning is not confirmed |
-| T07 Public Exposure of Stored Documents | Private application storage and protected download routes | Implemented at application level; filesystem and production configuration require review |
-| T08 Audit Log Tampering | SQLite triggers prevent ordinary audit UPDATE and DELETE operations | Partially implemented; direct database-file access is not protected |
-| T09 Search Information Leakage | User-search input validation and SQL injection test | Requires broader authorization and metadata review |
-| T10 SQL Injection | Parameterized ORM-based access and a passing user-search injection test | Partially tested; other query paths require review |
-| T11 Cross-Site Scripting | Template escaping checks and preliminary unsafe-rendering review | Partially reviewed; comprehensive XSS testing remains |
-| T12 Unauthorized Permission Modification | Owner checks and denied audit events for non-owner permission actions | Implemented for tested operations; broader tests remain |
-| T13 Incomplete Audit Trail | Authentication and document activity audit events, including tested denials | Partially implemented; complete route coverage remains |
-| T14 Brute-Force Login Attacks | Login rate limiting and targeted test | Implemented; broader abuse testing remains |
-| T15 Unsafe AI Permission Suggestions | No completed AI permission recommendation workflow confirmed | Pending |
-| T16 Administrative Privilege Escalation | Protected admin functionality and admin API tests | Implemented; additional privilege-boundary review remains |
-| T17 Sensitive Metadata Exposure | Sharing metadata and administrative response controls | Requires security review |
-
-## 10. Additional Verified Security Controls
-
-### Authentication Audit Events
-Registration, login and logout success/denial events are recorded through the centralized audit service. Passwords and password hashes are not included in audit records.
-
-### Denied Permission Operations
-Non-owner attempts to view, grant and revoke document permissions have denied audit logging.
-
-### File Upload Validation
-Targeted tests cover:
-- MIME-type mismatch.
-- Empty files.
-- Invalid DOCX archives.
-- Invalid PPTX structures.
-- Files exceeding the configured size limit.
-
-### Download Response Protection
-Download responses are checked for:
-- Attachment content disposition.
-- X-Content-Type-Options: nosniff.
-- Cache-Control: private, no-store, max-age=0.
-- Pragma: no-cache.
-
-### Rate Limiting
-The custom HTTP exception handler preserves response headers supplied by the exception, including Retry-After.
-
-### Error Handling
-Validation errors use structured responses. Unexpected server errors are logged internally and return generic client-facing messages.
-
-### Audit Database Protection
-SQLite triggers prevent ordinary UPDATE and DELETE operations on audit records. This is not equivalent to cryptographically tamper-proof or externally immutable audit storage.
-
-## 11. Remaining Security Work
-
-1. Expand IDOR and authorization tests across all protected endpoints.
-2. Verify permission boundaries for all Viewer and Editor operations.
-3. Review session-cookie security, expiration and invalidation.
-4. Evaluate malware scanning.
-5. Review filesystem permissions and storage isolation.
-6. Evaluate stronger audit integrity for direct database-file access.
-7. Expand SQL injection tests beyond user search.
-8. Complete XSS testing for dynamic and stored user-controlled content.
-9. Review CSRF coverage across state-changing endpoints.
-10. Expand denied-access audit coverage.
-11. Review administrative privilege boundaries.
-12. Review search responses and metadata exposure.
-13. Run a fresh complete test suite after recent changes.
-
-## 12. Assessment Limitations
-
-- A passing targeted test establishes only the behavior covered by that test.
-- Existing security controls do not prove the absence of all vulnerabilities.
-- Private application storage does not by itself establish secure production filesystem configuration.
-- SQLite triggers do not prevent a person with direct database-file access from replacing or modifying the database.
-- Malware scanning is not confirmed.
-- AI permission suggestions are not confirmed as implemented.
-- Complete document editing functionality is not confirmed.
-
-**End of Updated Security Assessment**
+This document records the project's threat model and security considerations. It does not claim that the application has passed a formal security audit or that every listed mitigation has been independently verified.

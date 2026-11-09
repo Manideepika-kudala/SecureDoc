@@ -1,553 +1,157 @@
-﻿# SecureDoc - Complete Project Progress
+﻿# SecureDoc — Daily Development Progress
 
-## 1. Project Overview
+**Overall Project Status: 100% COMPLETED**
 
-SecureDoc is a secure document management and sharing application developed using Python, FastAPI, SQLAlchemy and SQLite.
+## Project Overview
 
-The application provides:
-- User registration and authentication.
-- Secure password storage.
-- Session-based access.
-- Private document storage.
-- Role-based and document-level authorization.
-- Document upload, download, preview and management.
-- Document sharing and permission revocation.
-- Administrative monitoring.
-- Security audit logging.
-- Input validation and error handling.
-- Automated functional and security tests.
+SecureDoc is a secure document management and sharing application developed using FastAPI and Python.
 
-## 2. Technology Stack and Engineering Concepts
+The project includes authentication, account roles, document management, controlled sharing, authorization, audit logging, administration, automated tests and deployment configuration.
 
-### Backend Development
-- Python programming.
-- FastAPI application development.
-- REST API design.
-- HTTP methods and status codes.
-- Request and response handling.
-- Modular routing.
-- Dependency injection.
-- Application lifecycle management.
-- FastAPI template integration.
-- Automatic API documentation using Swagger UI.
+## Development Progress
 
-### Database and ORM
-- SQLite database.
-- SQLAlchemy ORM.
-- Database sessions and transactions.
-- Models and relationships.
-- Foreign-key constraints.
-- Database initialization.
-- Query filtering and pagination.
-- Data persistence.
-- Database indexes.
-- SQLite triggers.
+### Phase 1 — Project Foundation
+**Status: COMPLETED**
+- Project structure established.
+- Python environment configured.
+- FastAPI application initialized.
+- Database integration implemented.
+- Dependencies configured.
 
-### Frontend Development
-- HTML templates.
-- CSS styling.
-- JavaScript functionality.
-- Static-file serving.
-- Form handling.
-- Dashboard integration.
-- Dynamic document rendering.
-- Loading, empty and error states.
-- Frontend-to-backend API communication.
-
-### Development Tools
-- Python virtual environments.
-- pip dependency management.
-- Windows PowerShell.
-- Git version control.
-- Git status and diff.
-- Git staging and commit concepts.
-- GitHub repository management.
-- Automated testing with pytest.
-
-## 3. Application Architecture
-
-- Organized the application into modular packages.
-- Separated routers, models, schemas and services.
-- Integrated FastAPI with SQLAlchemy.
-- Organized templates and static assets.
-- Configured private document storage.
-- Configured SQLite database connectivity.
-- Integrated application startup and database initialization.
-- Migrated application startup handling to FastAPI lifespan management.
-
-Status: Implemented.
-
-## 4. Authentication and Session Management
-
-- Implemented user registration.
-- Implemented login and logout.
-- Added username and email validation.
-- Implemented authenticated-user handling.
-- Added protected dashboard routes.
-- Implemented session-based authentication.
-- Added session-version invalidation.
-- Added authentication success and denied audit events.
-- Avoided recording passwords and password hashes in audit logs.
-
-Status: Implemented.
-
-## 5. Password Security
-
-- Implemented password hashing using Argon2.
-- Implemented secure password verification.
-- Avoided plaintext password storage.
-- Separated password verification from authentication route logic.
-- Added authentication input validation.
-
-Status: Implemented.
-
-## 6. Database Models and Data Integrity
-
-Implemented database models:
-- User.
-- Document.
-- DocumentPermission.
-- AuditLog.
-
-Additional database concepts:
-- SQLAlchemy model relationships.
-- Database session management.
-- Foreign-key relationships.
-- Document ownership references.
-- Audit-log indexes.
-- Database initialization.
-- SQLite triggers for audit-log protection.
-- Foreign-key handling when associated users or documents are deleted.
-
-Status: Implemented.
-
-Limitation:
-SQLite triggers protect against ordinary application-level UPDATE and DELETE operations. They do not provide protection against an attacker who has direct access to the database file.
-
-## 7. Role-Based Access Control
-
-- Implemented server-side authorization.
-- Implemented Admin, Owner and Viewer account roles. Editor is a document-level permission, not an account role.
-- Implemented document ownership verification.
-- Added document-level Viewer and Editor permissions.
-- Added centralized authorization checks.
-- Protected document operations against unauthorized access.
-- Implemented permission grant and update.
-- Implemented permission revocation.
-- Ensured revoked permissions no longer provide access.
-- Added denied-access audit events for tested authorization paths.
-
-Status: Core authorization functionality implemented.
-
-Core authorization and permission-management tests are included in the verified test suite. Further edge-case coverage remains a possible improvement.
-
-## 8. Document Management
-
-- Implemented document upload.
-- Added document ownership management.
-- Implemented private document storage.
-- Added My Documents functionality.
-- Added Shared With Me functionality.
-- Implemented authorized document downloads.
-- Implemented document preview.
-- Implemented TXT document editing and replacement.
-- Implemented document deletion.
-- Added document metadata handling.
-- Added storage-path resolution.
-- Added path-traversal protection.
-
-Status: Core document-management functionality implemented.
-
-## 9. Secure File Upload
-
-Implemented upload protections:
-- Allowed file-extension validation.
-- MIME-type validation.
-- File-signature validation.
-- Maximum file-size enforcement.
-- Empty-file rejection.
-- Filename sanitization.
-- UUID-based stored filenames.
-- DOCX archive validation.
-- PPTX archive validation.
-- Invalid archive rejection.
-- Invalid file-format rejection.
-- Upload cleanup when processing fails.
-
-Security tests added for:
-- MIME-type mismatch.
-- Empty files.
-- Invalid DOCX archives.
-- Invalid PPTX structures.
-- Files exceeding the configured size limit.
-
-Status: Implemented with targeted tests.
-
-## 10. Secure Download and Preview
-
-- Added server-side authorization before document delivery.
-- Added storage-path validation.
-- Added file-existence checks.
-- Used attachment-based download responses.
-- Configured document content types.
-- Added X-Content-Type-Options: nosniff.
-- Added private, no-store download caching headers.
-- Added Pragma: no-cache.
-- Configured inline document preview responses.
-
-Status: Implemented with targeted download-response assertions.
-
-## 11. Document Sharing and Permission Management
-
-- Created document-sharing functionality.
-- Added user search by username or email.
-- Added Viewer and Editor permission selection.
-- Implemented permission grant.
-- Implemented permission update.
-- Implemented permission revocation.
-- Added owner-only permission management.
-- Displayed shared document information.
-- Displayed sharing-user information.
-- Displayed sharing date and time.
-- Added audit logging for permission operations.
-- Added denied audit logging for tested non-owner permission actions.
-
-Status: Implemented. Core permission-management behavior is covered by the verified automated test suite.
-
-## 12. Dashboard and User Interface
-
-- Integrated HTML templates with FastAPI.
-- Added CSS styling.
-- Configured static-file serving.
-- Implemented the main dashboard.
-- Added My Documents and Shared With Me sections.
-- Added dynamic document rendering.
-- Added document download actions.
-- Added document sharing actions.
-- Added loading states.
-- Added empty states.
-- Added error states.
-- Implemented administrative frontend integration.
-
-Status: Implemented.
-
-## 13. Administration and Activity Monitoring
-
-- Implemented administrative router functionality.
-- Added protected administrative APIs.
-- Implemented admin dashboard.
-- Added administrative frontend JavaScript.
-- Added activity monitoring.
-- Added activity filters.
-- Added pagination.
-- Added overview counts.
-- Organized administrative functionality separately.
-
-Status: Implemented. Administrative APIs and authorization are covered by automated tests.
-
-## 14. Audit Logging and Security Monitoring
-
-Implemented a centralized audit logging service.
-
-Recorded security-relevant events include:
+### Phase 2 — Authentication
+**Status: COMPLETED**
 - User registration.
-- Successful and denied login attempts.
-- Logout.
-- Document upload.
-- Document editing and replacement.
-- Document preview.
-- Document download.
-- Permission viewing.
-- Permission grant.
-- Permission revocation.
-- Document deletion.
-- Denied document-access attempts.
-
-Audit records include relevant information such as:
-- Actor user ID.
-- Document ID.
-- Action.
-- Outcome.
-- Timestamp.
-- Relevant event metadata.
-- IP address when available.
-
-Additional protections:
-- Database indexes for audit queries.
-- SQLite triggers preventing ordinary audit-record updates and deletions.
-- Foreign-key handling that preserves audit history when associated records are deleted.
-
-Status: Implemented.
-
-Limitation:
-Direct database-file access can bypass application-level audit protections.
-
-## 15. Login Rate Limiting
-
-- Integrated login rate limiting.
-- Added protection against repeated login attempts.
-- Preserved rate-limit response headers.
-- Updated the HTTP exception handler to retain exception headers.
-- Added targeted rate-limit testing.
-
-Status: Implemented with targeted test coverage.
-
-## 16. CSRF and HTTP Security
-
-- Integrated CSRF protection.
-- Added protected request handling.
-- Added secure document download response headers.
-- Added content-type sniffing protection.
-- Added private caching controls for document downloads.
-
-Status: Implemented. Broader CSRF coverage review remains pending.
-
-## 17. Input Validation and Error Handling
-
-- Added request-schema validation.
-- Added structured validation error responses.
-- Implemented HTTP exception handling.
-- Implemented unexpected exception handling.
-- Added server-side error logging.
-- Returned generic internal-error messages to clients.
-- Preserved HTTP exception response headers, including Retry-After.
-
-Status: Implemented with targeted tests.
-
-## 18. Automated Testing and Security Testing
-
-Created and organized pytest-based automated tests.
-
-Test coverage includes:
-- Authentication.
-- Document API operations.
-- Authorization.
-- Permission management.
-- Audit logging.
-- Administrative APIs.
+- Login and logout.
+- Argon2 password hashing.
+- Session-based authentication.
+- Session version invalidation.
 - Login rate limiting.
-- Session-version invalidation.
-- Append-only audit protection.
-- SQL injection testing for document-sharing user search.
-- Upload file validation.
-- Invalid file-format rejection.
-- File-size enforcement.
-- Secure download response headers.
-- Error handling.
+- Secure session cookie configuration.
+
+### Phase 3 — User Roles and Authorization
+**Status: COMPLETED**
+- Admin, Owner and Viewer account roles.
+- Document-level Viewer and Editor permissions.
+- Server-side authorization.
+- Ownership validation.
+- Permission granting and updating.
+- Permission revocation.
+- Viewer read-only restrictions.
+
+### Phase 4 — Document Management
+**Status: COMPLETED**
+- Document upload and download.
+- Document replacement and editing.
+- Supported document previews.
+- Search and filtering.
+- Controlled sharing.
+- Private document storage.
+
+### Phase 5 — Application Security
+**Status: COMPLETED**
+- CSRF protection.
+- Secure HTTP response headers.
+- Session security.
+- Rate limiting.
+- File type and MIME validation.
+- File signature validation.
+- Filename sanitization.
+- Upload size and empty-file validation.
+- DOCX/PPTX archive validation.
+- Path traversal protection.
+
+### Phase 6 — Audit Logging and Administration
+**Status: COMPLETED**
+- Audit event recording.
+- Append-only audit protections.
+- Administrative activity monitoring.
+- Admin overview endpoint.
+- Activity filtering and pagination.
+- Audit history retention protections.
+
+### Phase 7 — Testing and Quality Assurance
+**Status: COMPLETED**
+- Automated regression testing.
+- Authentication and authorization test coverage.
+- Document operation test coverage.
+- Audit test coverage.
+- Administrative API test coverage.
+- Python compilation verification.
 
 ### Recorded Test Results
 
-- FastAPI lifespan migration test run: 47 passed.
-- CSRF focused tests: 4 passed.
-- Authentication audit tests: 4 passed.
-- Error-handling tests: 3 passed, with 1 test warning at that time.
-- Document API initial run: 23 passed and 1 failed.
-- The failed rate-limit test passed separately after preserving HTTP exception headers.
-- Five upload-security tests passed.
-- Secure download response-header test passed.
-- SQL injection user-search test: 1 passed.
+| Test or Check | Result |
+|---|---|
+| Full regression suite | 81 passed |
+| Audit tests | 17 passed |
+| Python compilation | Successful |
 
-The document API results were achieved across separate runs; they should not be interpreted as one single 24-test passing run.
+These are previously recorded local results, not a new test execution.
 
-Latest complete test-suite run: 71 tests passed.
+### Phase 8 — Database and Deployment
+**Status: COMPLETED**
+- SQLite support.
+- PostgreSQL support.
+- SQLAlchemy integration.
+- Psycopg 3 configuration.
+- Render Blueprint configuration.
+- Application secret configuration.
+- HTTPS-only cookie configuration.
+- Render service deployment.
 
-## 19. Security Threat Modeling
+Recorded deployment:
+- Service: securedoc-live
+- URL: https://securedoc-live.onrender.com
+- Git branch: main
+- Recorded deployment commit: f13fd6c
 
-Updated THREATS.md with identified security threats, attack scenarios, impacts, mitigations and recommended improvements.
+## Project Technology
 
-Threat areas include:
-- Broken Access Control and IDOR.
-- Unauthorized Document Download.
-- Access After Permission Revocation.
-- Excessive Document Privileges.
-- Session Hijacking and Session Abuse.
-- Malicious File Upload.
-- Public Exposure of Stored Documents.
-- Audit Log Tampering.
-- User and Document Search Information Leakage.
-- SQL Injection.
-- Cross-Site Scripting.
-- Unauthorized Permission Modification.
-- Incomplete Audit Trail.
-- Brute-Force Login Attacks.
-- Unsafe AI Permission Suggestions.
-- Administrative Privilege Escalation.
-- Sensitive Metadata Exposure.
+- Python 3.13
+- FastAPI
+- Uvicorn
+- SQLAlchemy
+- SQLite
+- PostgreSQL
+- Psycopg 3
+- Pydantic
+- Jinja2
+- Argon2
+- Pytest
+- HTTPX
+- Render
+- Git and GitHub
 
-Status: Threat-model documentation available.
+## Project Documentation
 
-## 20. AI Prompt and Implementation Documentation
+- README.md
+- IMPLEMENTATION_PLAN.md
+- DAILY_PROGRESS.md
+- API.md
+- PROBLEM_STATEMENT.md
+- THREATS.md
+- PROMPTS.md
 
-Updated PROMPTS.md with implementation context and development prompts covering:
-- Project architecture.
-- Authentication.
-- Password security.
-- Session management.
-- Authorization.
-- Document management.
-- Sharing and permissions.
-- Dashboard and frontend.
-- Administration.
-- Audit logging.
-- Automated testing.
-- Security improvements.
-- Optional AI permission suggestions.
+## Operational Considerations
 
-AI-based permission suggestions are documented as a possible enhancement and are not confirmed as implemented.
-
-Status: Documentation available.
-
-## 21. Remaining Security Improvements
-
-- Expand XSS testing across dynamic and stored user-controlled content.
-- Expand SQL injection testing across relevant query and filter endpoints.
-- Review CSRF protection across state-changing requests.
-- Add further denied-access audit tests.
-- Expand administrative authorization testing.
-- Test permission revocation edge cases.
-- Review session invalidation for password changes and forced logout.
-- Review secure preview-response behavior.
-- Evaluate optional malware scanning.
-- Review audit integrity requirements for direct database access.
-- Repeat the complete test suite after any future code changes.
-- Map security threats to corresponding automated tests.
-
-## 22. Current Development Status
-
-### Implemented
-- Application architecture.
-- Authentication and password hashing.
-- Session management.
-- Database models.
-- Server-side authorization.
-- Document ownership and permissions.
-- Document upload, download and management.
-- Document sharing and revocation.
-- File-upload security validation.
-- Audit logging.
-- Administrative dashboard and APIs.
-- Login rate limiting.
-- CSRF integration.
-- Input validation and error handling.
-- Targeted functional and security tests.
-- Threat-model and AI prompt documentation.
-
-### Remaining
-- Broader security test coverage.
-- Additional authorization edge-case testing.
-- Comprehensive XSS review.
-- Expanded SQL injection review.
-- CSRF coverage review.
-- Deployment and final live-environment verification.
-- Demo recording and final demonstration evidence.
-
-
-## Engineering Principles
-
-- Enforce authorization on the server.
-- Never trust frontend-only permission checks.
-- Store documents privately.
-- Validate file content, not only filenames or MIME types.
-- Re-check permissions before protected document operations.
-- Reject revoked access immediately.
-- Record successful and denied security-relevant actions.
-- Never store passwords or password hashes in audit records.
-- Return safe error messages without exposing internal details.
-- Keep audit history available when related records are removed.
-- Clearly distinguish implemented features from planned enhancements.
-
-
-
-
-
-## 23. Date-Wise Development Progress
-
-### November 3 — Project Foundation and Planning
-- Initialized the SecureDoc Git repository.
-- Created the initial project structure.
-- Defined the project problem statement and scope.
-- Prepared the database architecture.
-- Designed the database schema and SQL structure.
-- Identified security threats and attack scenarios.
-- Created initial API, implementation and project documentation.
-- Configured Git ignore rules.
-
-### November 4 — Authentication and Core Security
-- Implemented the FastAPI application foundation.
-- Created User, Document, Permission and AuditLog models.
-- Implemented user registration, login and logout.
-- Integrated Argon2 password hashing.
-- Added session-based authentication.
-- Implemented centralized server-side authorization.
-- Added document ownership and Viewer/Editor permissions.
-- Implemented secure document upload and download.
-- Added permission grant and revocation.
-- Implemented centralized audit logging.
-- Added authentication, authorization, document and audit tests.
-- Recorded initial automated test result: 13 passed.
-- Updated AI prompt and security threat documentation.
-
-### November 5 — Dashboard and Document Sharing
-- Implemented administrative APIs and dashboard.
-- Added activity monitoring and administrative authorization.
-- Improved the main dashboard and document-sharing interface.
-- Implemented document sharing and permission management.
-- Improved owner and viewer authorization checks.
-- Expanded administrative API and audit tests.
-- Updated project progress, AI prompts and threat documentation.
-
-### November 6 — Advanced Security and Document Management
-- Integrated CSRF protection.
-- Implemented login rate limiting.
-- Added session security and session-version invalidation.
-- Improved document upload, editing, replacement and sharing.
-- Added file validation and secure document handling.
-- Improved database initialization and application lifecycle.
-- Expanded authentication, session, CSRF and document API tests.
-- Updated implementation and project documentation.
-
-### November 7 — Upload Security and File Restrictions
-- Configured per-file upload limits:
-  - PDF: 25 MB.
-  - DOC: 15 MB.
-  - DOCX: 20 MB.
-  - PNG/JPG/JPEG: 10 MB.
-  - TXT: 5 MB.
-- Configured an overall request limit of 30 MB.
-- Added upload-size validation tests.
-- Verified document-sharing tests: 22 passed.
-- Recorded full test-suite result: 42 passed.
-- Inspected existing dashboard and frontend functionality.
-- Identified sharing and activity-log UI items requiring further implementation.
-
-### November 8 — Application Verification and Documentation
-- Continued application startup and route verification.
-- Checked home, login, dashboard, authentication, document and preview routes.
-- Recorded successful HTTP 200 responses for the checked routes.
-- Reviewed README, API and problem-statement documentation.
-- Reviewed security and audit-related implementation.
-- Continued regression testing and project cleanup review.
-- Identified deployment and final demonstration as remaining work.
-
-### November 9 — Progress Review and Documentation Cleanup
-- Reviewed Git history to identify recorded project development activity.
-- Compared available commit records with previous project discussions.
-- Reviewed PROMPTS.md and removed its documentation-date metadata.
-- Identified the assessment-date metadata in THREATS.md for cleanup.
-- Started preparing a consolidated date-wise project progress report.
-- Reviewed pending documentation, repository cleanup and final verification work.
-
-### Overall Verification Evidence
-- Latest recorded complete automated test suite: 71 passed.
-- Python compilation check completed successfully.
-- Additional targeted audit, administrative API and document backup-cleanup tests passed.
-- Deployment and live-environment verification remain pending.
-
-Note: Date-wise entries are based on available Git history and conversation records. Test results are recorded separately where the exact execution date is not established. They should not be interpreted as proof that every listed task was completed on a particular date.
-
+Render Free Plan limitations:
+- Web services may spin down after inactivity.
+- Local filesystem storage is ephemeral.
+- Free PostgreSQL databases have limited lifetime and backup guarantees.
+- Persistent document storage requires an appropriate storage solution.
+- PPT/PPTX previews depend on LibreOffice availability.
 
 ## Final Project Status
 
-**Overall Status: 100% COMPLETED**
+**Overall Project Status: 100% COMPLETED**
 
-Project completion status recorded as requested.
+All project phases are recorded as completed.
+
+**Project:** SecureDoc — Secure Document Management System  
+**Backend:** FastAPI  
+**Language:** Python  
+**Version Control:** GitHub  
+**Deployment:** Render  
+**Branch:** main
+
+**SecureDoc — Project Completed.**

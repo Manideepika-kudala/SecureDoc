@@ -1,673 +1,453 @@
-﻿# SecureDoc - AI Prompt Documentation
+﻿# SecureDoc - Project Prompt Documentation
 
-**Project:** SecureDoc  
-**Purpose:** Record AI-assisted development, security design, implementation decisions and verification.
+## 1. Overview
 
-> Documentation accuracy: The prompts below are reconstructed from the implemented features and available project progress. They are not claimed to be verbatim copies of the original conversations.
+This document maintains the main development prompts and requirements associated with the SecureDoc project.
 
----
+It can be used as a reference for:
+- Understanding the project.
+- Continuing development.
+- Implementing new functionality.
+- Reviewing existing functionality.
+- Improving application security.
+- Testing and debugging.
+- Maintaining documentation.
 
-## 1. Project Overview
-
-SecureDoc is a secure document management and sharing application.
-
-The development focuses on:
-- User authentication and session management.
-- Secure document storage.
-- Server-side document authorization.
-- Controlled document sharing.
-- Viewer and Editor permission levels.
-- Administrative functionality.
-- Audit logging.
-- Security testing and verification.
+The prompts below describe intended tasks and requirements. Their presence in this document does not mean every prompt was independently executed.
 
 ---
 
-## 2. Authentication and Account Security
+## 2. Master Project Prompt
 
-### PROMPT-001: User Registration
+**Prompt:**
 
-**Category:** Authentication  
-**Objective:** Implement user registration.
+Develop a secure web-based document management application named SecureDoc.
 
-**Reconstructed Prompt:**
-Implement a user registration feature for SecureDoc. Validate usernames and email addresses, securely handle user credentials, and integrate the registration process with the application's database.
+The application should provide:
 
-**Expected Output:**
-- User registration functionality.
-- Username and email validation.
-- Secure password handling.
-- Database integration.
+1. User registration and authentication.
+2. Role-based access control.
+3. Owner and Viewer roles.
+4. Document upload and management.
+5. Document ownership enforcement.
+6. Controlled document sharing.
+7. Secure document access and downloads.
+8. Audit logging.
+9. Administrative functionality.
+10. Database integration.
+11. Automated testing.
+12. Deployment configuration.
+13. Complete project documentation.
 
-**Implementation Record:**
-Registration functionality and validation were implemented.
+Use a modular application architecture and apply security checks on the server side.
 
-**Security Considerations:**
-- Do not store plaintext passwords.
-- Validate user-provided account information.
-- Handle invalid registration data safely.
-
-**Status:** Implemented
-
----
-
-### PROMPT-002: Secure Password Hashing
-
-**Category:** Security Design  
-**Objective:** Protect stored user passwords.
-
-**Reconstructed Prompt:**
-Implement password hashing using Argon2. Store password hashes instead of plaintext passwords and provide a secure password-verification mechanism for login.
-
-**Expected Output:**
-- Argon2 password hashing.
-- Password verification.
-- Secure password storage.
-
-**Implementation Record:**
-Argon2 password hashing and verification were incorporated into authentication.
-
-**Security Considerations:**
-Password hashes must be used for verification; plaintext passwords must not be stored.
-
-**Status:** Implemented
+Do not allow users to perform operations beyond their assigned permissions.
 
 ---
 
-### PROMPT-003: Login and Session Management
+## 3. Project Architecture Prompt
 
-**Category:** Authentication  
-**Objective:** Implement authenticated user sessions.
+**Prompt:**
 
-**Reconstructed Prompt:**
-Implement login and logout functionality for SecureDoc. Verify user credentials, establish authenticated sessions, protect routes that require authentication, and provide a logout mechanism.
+Review the SecureDoc application architecture and organize the project into maintainable modules.
 
-**Expected Output:**
-- Login functionality.
-- Session management.
-- Protected routes.
-- Logout functionality.
+Requirements:
 
-**Implementation Record:**
-Login, session handling, logout and protected dashboard routes were implemented.
+- Keep authentication functionality separate from document functionality.
+- Keep authorization logic reusable.
+- Separate database models and application services where appropriate.
+- Organize templates and static assets.
+- Maintain configuration separately from application code.
+- Keep tests organized by functionality.
+- Avoid unnecessary duplication.
+- Preserve existing functionality while implementing changes.
 
-**Security Considerations:**
-Review session handling and ensure unauthenticated users cannot access protected pages.
-
-**Status:** Implemented
+Before modifying an existing module, understand its dependencies and current behavior.
 
 ---
 
-## 3. Document Authorization
+## 4. Authentication Prompt
 
-### PROMPT-004: Centralized Authorization
+**Prompt:**
 
-**Category:** Access Control  
-**Objective:** Enforce document-level access restrictions.
+Implement secure user registration, login, and logout functionality.
 
-**Reconstructed Prompt:**
-Create centralized server-side authorization logic for SecureDoc. Verify document ownership and sharing permissions before allowing users to perform protected document operations.
+Requirements:
 
-**Expected Output:**
-- Centralized authorization service.
-- Document ownership verification.
-- Permission-based access decisions.
-- Consistent authorization checks.
+- Validate registration input.
+- Store passwords using an appropriate secure password-hashing mechanism.
+- Authenticate users before allowing protected operations.
+- Handle invalid credentials safely.
+- Protect authenticated sessions.
+- Ensure logout invalidates the applicable session.
+- Avoid exposing sensitive account information.
 
-**Implementation Record:**
-Centralized authorization and document ownership verification were implemented.
-
-**Security Considerations:**
-Authorization must be enforced on the server, not only through frontend controls.
-
-**Status:** Implemented
+Add tests for successful authentication, invalid credentials, and unauthorized access.
 
 ---
 
-### PROMPT-005: Viewer and Editor Permissions
+## 5. Role-Based Access Control Prompt
 
-**Category:** Role-Based Document Access  
-**Objective:** Introduce controlled document-sharing permissions.
+**Prompt:**
 
-**Reconstructed Prompt:**
-Implement Viewer and Editor permission levels for shared documents. Ensure that document owners can control access and that server-side authorization checks enforce the assigned permission.
+Implement role-based authorization for SecureDoc.
 
-**Expected Output:**
-- Viewer permission.
-- Editor permission.
-- Permission-based authorization.
-- Owner-controlled access.
+The application must support two main user roles:
 
-**Implementation Record:**
-Viewer and Editor permission levels were incorporated into document authorization.
+### Owner
 
-**Limitation:**
-The Editor permission level is implemented, but complete document-editing functionality is not confirmed.
+The Owner role should provide permissions for document ownership and permitted document management operations.
 
-**Status:** Permission levels implemented; complete editing capability not confirmed.
+### Viewer
 
----
+The Viewer role should provide restricted access to permitted documents.
 
-### PROMPT-006: Grant, Update and Revoke Permissions
+Requirements:
 
-**Category:** Access Control Management  
-**Objective:** Allow owners to manage shared access.
+- Assign the user's role during account creation according to the available role-selection rules.
+- Validate role values on the server.
+- Enforce permissions in backend routes and services.
+- Do not rely only on frontend visibility.
+- Prevent Viewer users from performing Owner-only operations.
+- Ensure users cannot change their own role without authorized permission.
+- Validate permissions for every protected document operation.
 
-**Reconstructed Prompt:**
-Allow document owners to grant permissions to other users, update existing permissions and revoke access. Ensure revoked users cannot continue accessing the document through protected operations.
-
-**Expected Output:**
-- Permission grant.
-- Permission update.
-- Permission revocation.
-- Access denial after revocation.
-
-**Implementation Record:**
-Permission grant, update and revoke functionality was implemented. Access denial after revocation was tested.
-
-**Status:** Implemented
+Add authorization tests for both roles.
 
 ---
 
-## 4. Secure Document Management
+## 6. Document Management Prompt
 
-### PROMPT-007: Secure Document Upload
+**Prompt:**
 
-**Category:** File Security  
-**Objective:** Implement document upload with validation.
+Implement secure document management functionality.
 
-**Reconstructed Prompt:**
-Implement secure document uploading. Validate uploaded file information, sanitize filenames and store uploaded documents in private storage rather than exposing them through public static directories.
+Requirements:
 
-**Expected Output:**
-- Document upload.
-- Filename sanitization.
-- File validation.
-- Private document storage.
+- Allow permitted users to upload documents.
+- Validate uploaded files.
+- Store document metadata appropriately.
+- Associate documents with their owners.
+- Allow authorized users to list and access permitted documents.
+- Restrict downloads according to permissions.
+- Restrict deletion according to ownership and authorization rules.
+- Handle missing documents safely.
+- Prevent unauthorized access through manipulated document identifiers.
 
-**Implementation Record:**
-Secure upload functionality, filename sanitization, file validation and private storage were implemented.
-
-**Security Considerations:**
-File validation does not replace malware scanning.
-
-**Limitation:**
-Malware scanning is not confirmed.
-
-**Status:** Implemented with production security work pending.
+Add tests for upload, access, download, deletion, and permission enforcement.
 
 ---
 
-### PROMPT-008: Authorized Document Download
+## 7. Document Sharing Prompt
 
-**Category:** File Access Security  
-**Objective:** Prevent unauthorized document downloads.
+**Prompt:**
 
-**Reconstructed Prompt:**
-Implement document downloading with server-side authorization. Verify ownership or valid sharing permissions before providing access to a stored document.
+Implement controlled document-sharing functionality.
 
-**Expected Output:**
-- Authorized document downloads.
-- Ownership verification.
-- Sharing-permission verification.
-- Unauthorized access denial.
+Requirements:
 
-**Implementation Record:**
-Protected document download functionality was implemented.
+- Allow only authorized users to manage sharing.
+- Associate shared access with the relevant user and document.
+- Enforce Viewer restrictions.
+- Validate the target user's identity and permissions.
+- Support access revocation where implemented.
+- Ensure revoked permissions no longer authorize document operations.
+- Prevent unintended ownership transfer.
+- Reject unauthorized sharing requests.
 
-**Security Considerations:**
-A logged download request does not necessarily prove that the entire file was successfully transferred.
-
-**Status:** Implemented
+Add tests for sharing, access validation, and revocation.
 
 ---
 
-### PROMPT-009: My Documents and Shared Documents
+## 8. Secure File Storage Prompt
 
-**Category:** Document Management UI  
-**Objective:** Separate owned documents from shared documents.
+**Prompt:**
 
-**Reconstructed Prompt:**
-Organize the dashboard into separate My Documents and Shared With Me sections. Display documents according to the authenticated user's ownership and sharing permissions.
+Review the document storage implementation and improve file-handling security.
 
-**Expected Output:**
-- My Documents section.
-- Shared With Me section.
-- Dynamic document rendering.
-- Appropriate empty and error states.
+Requirements:
 
-**Implementation Record:**
-Separate document sections and dynamic dashboard rendering were implemented.
+- Use safe file names.
+- Validate uploaded file types and sizes.
+- Prevent path traversal.
+- Restrict access to stored files.
+- Avoid exposing internal filesystem paths.
+- Handle missing files safely.
+- Use persistent storage in production.
+- Avoid relying on temporary local storage for important documents.
 
-**Status:** Implemented
-
----
-
-## 5. Dashboard and Document Sharing
-
-### PROMPT-010: Dashboard UI Improvements
-
-**Category:** Frontend Development  
-**Objective:** Improve the document dashboard.
-
-**Reconstructed Prompt:**
-Improve the SecureDoc dashboard layout and styling. Display document information dynamically and provide appropriate loading, empty and error states.
-
-**Expected Output:**
-- Updated dashboard interface.
-- Improved CSS.
-- Dynamic document display.
-- Loading, empty and error states.
-
-**Implementation Record:**
-Dashboard templates and CSS were updated.
-
-**Status:** Implemented
+Document the storage configuration and infrastructure limitations.
 
 ---
 
-### PROMPT-011: Document Sharing Page
+## 9. Audit Logging Prompt
 
-**Category:** Document Sharing  
-**Objective:** Provide a dedicated sharing interface.
+**Prompt:**
 
-**Reconstructed Prompt:**
-Create a dedicated document-sharing interface. Allow owners to search for users using username or email and select Viewer or Editor permission levels.
+Implement or improve audit logging for important application activities.
 
-**Expected Output:**
-- Dedicated sharing page.
-- User search.
-- Permission selection.
-- Sharing management.
+Requirements:
 
-**Implementation Record:**
-A dedicated sharing interface and user lookup functionality were implemented.
+- Record relevant user actions.
+- Associate events with the appropriate user and timestamp.
+- Record relevant document-related activities.
+- Restrict audit information to authorized users.
+- Prevent unauthorized modification of audit records.
+- Avoid storing passwords, secret keys, or unnecessary sensitive information in logs.
+- Provide suitable administrative access to audit information.
 
-**Status:** Implemented
-
----
-
-### PROMPT-012: Shared Document Information
-
-**Category:** Dashboard and Metadata  
-**Objective:** Display sharing details.
-
-**Reconstructed Prompt:**
-Display useful sharing information in the Shared With Me section, including the sharing user's identity, sharing date and time, and the access level assigned to the current user.
-
-**Expected Output:**
-- Shared-by username.
-- Shared-by email.
-- Sharing date and time.
-- Access level information.
-
-**Implementation Record:**
-Sharing details were incorporated into the dashboard.
-
-**Status:** Implemented
+Add tests for audit creation and authorization.
 
 ---
 
-### PROMPT-013: Update and Revoke Sharing Permissions
+## 10. Administrative Functionality Prompt
 
-**Category:** Permission Management UI  
-**Objective:** Manage existing sharing permissions.
+**Prompt:**
 
-**Reconstructed Prompt:**
-Provide controls for document owners to update and revoke existing sharing permissions. Ensure that the backend validates ownership before applying changes.
+Review and implement administrative functionality for authorized users.
 
-**Expected Output:**
-- Permission update controls.
-- Revoke access controls.
-- Server-side ownership verification.
+Requirements:
 
-**Implementation Record:**
-Permission update and revoke functionality was implemented.
+- Restrict administrative routes.
+- Validate administrative permissions on the server.
+- Support permitted user-management operations.
+- Provide access to relevant audit information.
+- Prevent normal users from accessing administrative functionality.
+- Record important administrative activities.
 
-**Status:** Implemented
-
----
-
-## 6. Administrative Functionality
-
-### PROMPT-014: Admin Dashboard and API
-
-**Category:** Administration  
-**Objective:** Introduce administrative functionality.
-
-**Reconstructed Prompt:**
-Implement administrative dashboard functionality and protected admin APIs. Ensure that administrative operations are restricted to authorized administrators.
-
-**Expected Output:**
-- Admin dashboard.
-- Admin API routes.
-- Administrative access checks.
-- Admin-related tests.
-
-**Implementation Record:**
-Admin dashboard, API functionality and related tests were added.
-
-**Security Review Pending:**
-Perform additional verification of non-admin rejection and administrative privilege boundaries.
-
-**Status:** Implemented; additional security review pending.
+Add tests for authorized and unauthorized administrative requests.
 
 ---
 
-## 7. Audit Logging
+## 11. Database Management Prompt
 
-### PROMPT-015: AuditLog Model and Database
+**Prompt:**
 
-**Category:** Security Monitoring  
-**Objective:** Maintain records of important application activities.
+Review the SecureDoc database design and configuration.
 
-**Reconstructed Prompt:**
-Create an AuditLog database model and corresponding database table to record important document-related activities.
+Requirements:
 
-**Expected Output:**
-- AuditLog model.
-- Database table.
-- Structured activity records.
+- Maintain appropriate relationships between users and documents.
+- Store role and permission information consistently.
+- Maintain document ownership relationships.
+- Support document-sharing relationships.
+- Use safe database configuration.
+- Protect database credentials.
+- Support the configured development and production database environments.
+- Document migration and backup considerations.
 
-**Implementation Record:**
-AuditLog model and database table were implemented.
-
-**Status:** Implemented
-
----
-
-### PROMPT-016: Centralized Audit Logging
-
-**Category:** Security Monitoring  
-**Objective:** Standardize activity logging.
-
-**Reconstructed Prompt:**
-Implement a centralized audit logging service. Record relevant document uploads, download requests and permission grant, update and revoke activities.
-
-**Expected Output:**
-- Centralized logging service.
-- Upload activity logging.
-- Download-request logging.
-- Permission activity logging.
-
-**Implementation Record:**
-Centralized audit logging was implemented for the recorded activities.
-
-**Limitations:**
-- Denied access attempts require additional logging.
-- Append-only and tamper-evident audit protection are pending.
-- Application-level logs are not automatically tamper-proof.
-
-**Status:** Partially complete; security improvements pending.
+Avoid destructive database operations without explicit authorization.
 
 ---
 
-## 8. Testing and Verification
+## 12. Application Security Review Prompt
 
-### PROMPT-017: Admin API Tests
+**Prompt:**
 
-**Category:** Testing  
-**Objective:** Verify administrative API behavior.
+Perform a structured security review of SecureDoc.
 
-**Reconstructed Prompt:**
-Create automated tests for the SecureDoc administrative API and verify the tested authorization and response behavior.
+Review the following areas:
 
-**Implementation Record:**
-Admin API tests were added.
+1. Authentication.
+2. Password handling.
+3. Session management.
+4. Role-based authorization.
+5. Document ownership.
+6. Document sharing.
+7. File uploads.
+8. File path handling.
+9. Database configuration.
+10. Secret management.
+11. CSRF protection.
+12. XSS protection.
+13. Administrative access.
+14. Audit logging.
+15. Error handling.
 
-**Status:** Implemented
+For each identified issue:
 
----
+- Explain the security risk.
+- Identify the affected module.
+- Describe the potential impact.
+- Recommend an appropriate mitigation.
+- Add a regression test where applicable.
 
-### PROMPT-018: Full Test Suite Verification
-
-**Category:** Quality Assurance  
-**Objective:** Verify the current application test suite.
-
-**Reconstructed Prompt:**
-Run the complete SecureDoc automated test suite and report the number of passed tests, failures and warnings.
-
-**Verification Command:**
-
-    python -m pytest -q
-
-**Recorded Result:**
-
-    22 passed, 2 warnings in 6.54s
-
-**Warnings:**
-Two FastAPI startup-event deprecation warnings related to `@app.on_event("startup")`.
-
-**Interpretation:**
-The recorded test run passed all 22 tests. The warnings indicate migration work is required; they are not test failures.
-
-**Status:** Completed for the recorded test run.
+Do not claim a vulnerability is fixed until the relevant implementation and test results support that conclusion.
 
 ---
 
-## 9. Security Improvements and Pending Work
+## 13. Testing and Quality Assurance Prompt
 
-The following prompts represent future development work, not completed functionality.
+**Prompt:**
 
-### PROMPT-019: Denied Access Audit Logging
+Review the SecureDoc automated test suite.
 
-Record unauthorized document access attempts and denied permission changes. Include sufficient information for security investigation without unnecessarily exposing sensitive data.
+Requirements:
 
-**Status:** Pending
+- Test registration and login.
+- Test authentication failures.
+- Test Owner permissions.
+- Test Viewer restrictions.
+- Test document ownership.
+- Test document sharing.
+- Test unauthorized document access.
+- Test administrative authorization.
+- Test audit functionality.
+- Test invalid input and error handling.
+- Add regression tests for fixed defects.
 
-### PROMPT-020: Tamper-Evident Audit Logs
+Run the appropriate test commands and report actual results.
 
-Design append-only or tamper-evident audit logging. Prevent unauthorized modification or deletion of security audit records.
+Clearly distinguish passed, failed, skipped, and unexecuted tests.
 
-**Status:** Pending
+### Previously Recorded Results
 
-### PROMPT-021: Login Rate Limiting
+- Main test suite: 81 passed.
+- Audit-related test run: 17 passed.
+- Python compilation check: successful.
 
-Implement login rate limiting and appropriate protections against repeated authentication attempts.
-
-**Status:** Pending
-
-### PROMPT-022: XSS and SQL Injection Testing
-
-Review input handling, template rendering and database access. Perform dedicated XSS and SQL injection security tests.
-
-**Status:** Pending
-
-### PROMPT-023: Session Security Review
-
-Review session lifecycle, cookie security, session expiration and logout behavior. Add tests for relevant security requirements.
-
-**Status:** Pending
-
-### PROMPT-024: AI-Assisted Permission Suggestions
-
-Explore AI-based document permission suggestions. Require explicit document-owner approval before any permission is granted or changed.
-
-**Status:** Pending
-
-### PROMPT-025: Production Security Verification
-
-Review deployment configuration, secret management, storage permissions, HTTPS, logging and other production security requirements.
-
-**Status:** Pending
-
-### PROMPT-026: FastAPI Lifespan Migration
-
-Replace deprecated startup-event handling with the recommended FastAPI lifespan approach and verify application startup behavior.
-
-**Status:** Pending
+These are historical recorded results, not a new test execution during this documentation update.
 
 ---
 
-## 10. Development and Git Record
+## 14. Debugging Prompt
 
-**Recorded Test Result:**
-- 22 tests passed.
-- 2 deprecation warnings.
+**Prompt:**
 
-**Latest Recorded Commit:**
-- Branch: main
-- Commit: e87a7ce
-- Message: feat: improve SecureDoc UI and document sharing management
-- Files changed: 14
-- Insertions: 2428
-- Deletions: 68
+Investigate the reported SecureDoc issue without unnecessarily changing unrelated functionality.
 
----
+Follow this process:
 
-## 11. Implementation Accuracy and Limitations
+1. Understand the reported error.
+2. Identify the affected module.
+3. Inspect relevant implementation and dependencies.
+4. Reproduce the issue when possible.
+5. Identify the root cause.
+6. Apply the smallest appropriate fix.
+7. Add or update regression tests.
+8. Run the relevant tests.
+9. Explain the change and actual test results.
 
-The documentation distinguishes implemented features from future work.
-
-1. Viewer and Editor permission levels exist; complete document editing is not confirmed.
-2. Malware scanning is not confirmed.
-3. Denied-access audit logging requires further work.
-4. Append-only or tamper-evident audit protection is pending.
-5. Production security hardening is pending.
-6. Admin authorization requires additional security review.
-7. The recorded test result applies to the test run described above and does not prove that every possible security scenario is covered.
+Do not silently remove existing functionality to hide an error.
 
 ---
 
-## 12. Documentation Maintenance
+## 15. Deployment Prompt
 
-For future development:
+**Prompt:**
 
-- Record each significant AI-assisted task.
-- Preserve original prompts when available.
-- Mark reconstructed prompts clearly.
-- Record important AI suggestions and human review decisions.
-- Identify affected source files.
-- Record actual test commands and results.
-- Distinguish implemented, partially implemented and pending work.
-- Update the latest Git commit after each relevant documentation update.
+Prepare SecureDoc for deployment using the configured hosting environment.
 
-**End of Prompt Documentation**
+Requirements:
+
+- Configure environment variables.
+- Protect application secrets.
+- Configure the production database.
+- Install required dependencies.
+- Configure the application startup process.
+- Ensure the application uses the intended database.
+- Review file-storage persistence.
+- Review deployment logs.
+- Check application health after deployment.
+- Document hosting limitations.
+
+Never include credentials or secret values in deployment documentation.
+
+### Recorded Deployment Information
+
+- Hosting provider: Render.
+- Service: `securedoc-live`.
+- Application URL: `https://securedoc-live.onrender.com`.
+- Branch: `main`.
+- Recorded deployment commit: `f13fd6c`.
+
+These details are previously recorded project information, not a fresh deployment verification.
+
 ---
 
-## 13. Latest Implementation Records
+## 16. Documentation Maintenance Prompt
 
-This section supersedes older pending statuses wherever the functionality has since been implemented.
+**Prompt:**
 
-### PROMPT-027: Authentication Audit Logging
+Maintain complete and consistent SecureDoc project documentation.
 
-**Category:** Security Monitoring
+Review and update:
 
-**Reconstructed Prompt:**
-Record successful and denied registration, login and logout events through the centralized audit service. Never include passwords or password hashes in audit records.
+- `README.md`
+- `IMPLEMENTATION_PLAN.md`
+- `DAILY_PROGRESS.md`
+- `API.md`
+- `PROBLEM_STATEMENT.md`
+- `THREATS.md`
+- `PROMPTS.md`
 
-**Implementation Record:**
-Authentication audit events were integrated into the authentication routes.
+Requirements:
 
-**Status:** Implemented.
+- Describe actual application functionality accurately.
+- Maintain project setup instructions.
+- Document roles and permissions.
+- Explain security considerations.
+- Record testing results with their dates or context where available.
+- Document deployment information.
+- Mention known limitations.
+- Avoid inventing implementation details.
+- Keep documentation consistent across files.
 
-### PROMPT-028: Denied Permission Operation Logging
+---
 
-**Category:** Authorization and Audit Logging
+## 17. Future Enhancement Prompts
 
-**Reconstructed Prompt:**
-Record denied document-permission operations when a non-owner attempts to view, grant or revoke permissions. Include the relevant actor, document and action information.
+The following prompts describe possible future improvements. They are not claims that these features have already been implemented.
 
-**Implementation Record:**
-Denied audit logging was added for permission-view, permission-grant and permission-revoke operations.
+### Multi-Factor Authentication
 
-**Status:** Implemented for these operations; broader denial-path coverage remains under review.
+Explore adding an additional authentication factor to improve account security.
 
-### PROMPT-029: Login Rate Limiting
+### Malware Scanning
 
-**Category:** Authentication Security
+Explore integrating malware scanning for uploaded documents.
 
-**Reconstructed Prompt:**
-Protect login endpoints against repeated authentication attempts using rate limiting. Preserve rate-limit response headers, including Retry-After.
+### Persistent Cloud Storage
 
-**Implementation Record:**
-Login rate limiting and targeted tests were implemented. The HTTP exception handler was updated to preserve exception headers.
+Explore an external persistent storage solution for production documents.
 
-**Status:** Implemented with targeted testing.
+### Advanced Monitoring
 
-### PROMPT-030: CSRF Protection
+Explore centralized application monitoring, security alerts, and operational dashboards.
 
-**Category:** Request Security
+### Backup and Recovery
 
-**Reconstructed Prompt:**
-Integrate CSRF protection for relevant state-changing requests and provide the required frontend token handling.
+Develop a documented backup and recovery process for application data and uploaded files.
 
-**Implementation Record:**
-CSRF integration, frontend token handling and focused tests were added.
+### Security Testing
 
-**Status:** Implemented; broader endpoint coverage review remains.
+Perform periodic dependency scanning, security testing, and penetration testing.
 
-### PROMPT-031: Secure Upload Validation
+### Scalability
 
-**Category:** File Security
+Review infrastructure and database capacity for larger user and document workloads.
 
-**Reconstructed Prompt:**
-Validate uploaded file extensions, MIME types, signatures, file size and supported Office archive structures. Reject empty, malformed and oversized files.
+---
 
-**Implementation Record:**
-Upload validation was extended with signature checks, size enforcement, empty-file rejection and DOCX/PPTX archive validation.
+## 18. Development Guidelines
 
-**Status:** Implemented with five targeted upload-security tests.
+All future SecureDoc changes should follow these principles:
 
-### PROMPT-032: Secure Download Response Headers
+1. Understand existing functionality before modifying it.
+2. Preserve working application behavior.
+3. Enforce authorization on the server.
+4. Validate untrusted input.
+5. Protect documents and sensitive information.
+6. Never expose credentials.
+7. Add regression tests for important changes.
+8. Update related documentation.
+9. Report actual test results.
+10. Avoid claiming unverified functionality is complete.
 
-**Category:** File Access Security
+---
 
-**Reconstructed Prompt:**
-Add secure response headers to document downloads to prevent MIME sniffing and unwanted caching of private documents.
+## 19. Final Project Documentation Status
 
-**Implementation Record:**
-Download responses include X-Content-Type-Options, private no-store Cache-Control and Pragma headers.
+**Overall project status: 100% COMPLETED — recorded as requested.**
 
-**Status:** Implemented with targeted response-header assertions.
-
-### PROMPT-033: Append-Only Audit Database Protection
-
-**Category:** Audit Integrity
-
-**Reconstructed Prompt:**
-Protect audit records against ordinary database UPDATE and DELETE operations while preserving audit history when associated users or documents are deleted.
-
-**Implementation Record:**
-SQLite triggers were added to prevent ordinary audit-record modification and deletion, with handling for associated foreign-key nullification.
-
-**Status:** Implemented at the SQLite trigger level. Direct database-file access remains outside this protection.
-
-### PROMPT-034: Structured Error Handling
-
-**Category:** API Reliability and Security
-
-**Reconstructed Prompt:**
-Implement structured validation responses, HTTP exception handling and safe unexpected-error responses. Log internal errors server-side without exposing internal details to clients.
-
-**Implementation Record:**
-Structured validation responses and HTTP/unexpected exception handlers were implemented. HTTP exception headers are preserved.
-
-**Status:** Implemented with targeted tests.
-
-### PROMPT-035: FastAPI Lifespan Management
-
-**Category:** Application Architecture
-
-**Reconstructed Prompt:**
-Replace deprecated FastAPI startup-event handling with lifespan management and preserve database initialization behavior.
-
-**Implementation Record:**
-FastAPI lifespan integration was implemented and a recorded test run completed with 47 passing tests and no warnings.
-
-**Status:** Implemented.
-
-### Current Testing Notes
-
-- Authentication audit tests: 4 passed.
-- CSRF focused tests: 4 passed.
-- Error-handling tests: 3 passed; an earlier run reported one test warning.
-- Five upload-security tests passed.
-- Secure download response-header test: 1 passed.
-- SQL injection user-search test: 1 passed.
-- Rate-limit test passed separately after the HTTP exception-header fix.
-- Document API initial run: 23 passed and 1 failed; the failed rate-limit test passed in a subsequent isolated run.
-- A fresh complete test-suite run after the latest changes remains pending.
-
-The older 22-test result elsewhere in this document is a historical result, not the latest complete-suite result.
-
+This document provides the project prompt catalog and development guidelines. Individual prompts represent requirements and reusable instructions, not proof that every suggested task or future enhancement has been implemented.

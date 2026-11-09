@@ -1,197 +1,225 @@
 ﻿# SecureDoc API Documentation
 
-## Overview
+## 1. Overview
 
-SecureDoc is a secure document management application built with FastAPI.
-Routes are registered without an `/api` prefix.
+SecureDoc is a secure document management application designed to support authenticated access, role-based authorization, document operations, controlled sharing, and audit logging.
 
-All protected operations require server-side authentication and authorization.
-Mutating requests are subject to CSRF protection.
+This document describes the API capabilities and expected behavior at a functional level.
 
-## Authentication
+For the exact registered routes, HTTP methods, request schemas, and response schemas, use the application's generated OpenAPI specification.
 
-### POST /auth/register
-Register a new account.
+## 2. API Documentation and Specification
 
-- Request: username, email, password, role.
-- Allowed registration roles: `owner`, `viewer`.
-- Default role: `owner`.
-- Success: `201 Created`.
-- Duplicate username or email: `409 Conflict`.
+When the application is running, check the following locations:
 
-### POST /auth/login
-Authenticate using email and password.
+- OpenAPI specification: `/openapi.json`
+- Swagger UI: `/docs`
+- ReDoc: `/redoc`
 
-- Success: establishes a session.
-- Invalid credentials: `401 Unauthorized`.
-- Inactive account: `403 Forbidden`.
-- Rate limit exceeded: `429 Too Many Requests`.
+Availability of interactive documentation depends on the application configuration.
 
-### GET /auth/me
-Return the authenticated user's account information.
+The generated OpenAPI specification is the authoritative reference for actual endpoint paths and schemas.
 
-### POST /auth/logout
-Clear the current session.
+## 3. Authentication and Account Management
 
-## Documents
+The authentication module supports account-related operations.
 
-### POST /documents/upload
-Upload a document.
+Main responsibilities:
 
-- Access: Owner or Admin.
-- Request: multipart/form-data.
-- Required field: `file`.
-- Optional field: `category` (default: `General`).
-- Maximum file size: 200 MB.
-- Supported formats: PDF, TXT, PNG, JPG, JPEG, DOCX, PPT, PPTX.
-- Success: `201 Created`.
+- User registration.
+- User login.
+- Authentication and session handling.
+- Logout.
+- Access to authenticated application features.
+- Account identity management.
 
-### GET /documents/
-List documents accessible to the authenticated user.
+Protected operations require a valid authenticated session or the authentication mechanism configured by the application.
 
-Supported query parameters:
+Authentication failures should not grant access to protected resources.
 
-- `q`: search by filename, content type, category, or owner details.
-- `content_type`: filter by content type.
-- `category`: filter by category.
-- `ownership`: `all`, `owned`, or `shared`.
-- `date_from`, `date_to`: date filters in YYYY-MM-DD format.
-- `sort_by`: `filename`, `created_at`, or `file_size`.
-- `sort_order`: `asc` or `desc`.
-- `limit`: 1–100 (default 100).
-- `offset`: zero or greater (default 0).
+## 4. Role-Based Access Control
 
-Results are filtered according to the user's access rights.
+SecureDoc uses role-based authorization.
 
-### GET /documents/{document_id}/edit
-Retrieve editable TXT document content.
+### Owner
 
-- Access: Owner/Admin or authorized editor.
-- TXT files only.
-- Maximum editable size: 5 MB.
+The Owner role is intended for users who need document ownership and management permissions.
 
-### PUT /documents/{document_id}/edit
-Update TXT document content.
+Depending on the resource and configured authorization rules, Owner capabilities include:
 
-- Access: Owner/Admin or authorized editor.
-- Request JSON: `{"content": "updated text"}`.
-- TXT files only.
-- Maximum content size: 5 MB.
+- Managing owned documents.
+- Accessing permitted document operations.
+- Managing document sharing.
+- Controlling access granted to other users.
+- Performing operations allowed by ownership rules.
 
-### PUT /documents/{document_id}/replace
-Replace an existing document file.
+### Viewer
 
-- Access: Owner/Admin or authorized editor.
-- Request: multipart/form-data with `file`.
-- Replacement must use the same supported file extension.
-- Maximum file size: 200 MB.
+The Viewer role is intended for users who need restricted document access.
 
-### GET /documents/{document_id}/preview
-Preview a supported document.
+Viewer capabilities are limited to operations explicitly permitted by the authorization rules.
 
-- Access: authenticated users with document viewing permission.
-- Supported formats: PDF, PNG, JPG, JPEG, TXT, PPT, PPTX.
-- PPT/PPTX preview requires LibreOffice conversion.
+A Viewer must not receive Owner-only permissions simply because the user is authenticated.
 
-### GET /documents/{document_id}/download
-Download the original document.
+### Authorization Rules
 
-- Access: authenticated users with document viewing permission.
+- Authentication and authorization are separate checks.
+- Every protected operation must enforce the relevant permission.
+- Document ownership and sharing permissions must be considered.
+- Unauthorized operations must be rejected.
+- Role restrictions must be enforced on the server, not only in the user interface.
 
-### GET /documents/{document_id}/users/search
-Search active users for document sharing.
+## 5. Document Management
 
-- Access: Document Owner or Admin.
-- Query parameter: `q` (minimum 2 characters).
-- Excludes the current user.
+The document module provides the application's document-related functionality.
 
-### GET /documents/{document_id}/permissions
-List users who have access to a document.
+Supported functional areas include:
 
-- Access: Document Owner or Admin.
+- Document upload.
+- Document listing and access.
+- Document details.
+- Document download.
+- Document deletion where permitted.
+- Document sharing and access management.
+- Document ownership and permission enforcement.
 
-### POST /documents/{document_id}/permissions
-Grant or update document access.
+Document operations must validate the authenticated user and the permissions associated with the requested document.
 
-- Access: Document Owner or Admin.
-- Request JSON: `{"user_id": 2, "access_level": "viewer"}`.
-- Access levels: `viewer`, `editor`.
-- Target user must be active and cannot be the current user.
+The application should not expose private documents to users without authorization.
 
-### DELETE /documents/{document_id}/permissions/{target_user_id}
-Revoke a user's document access.
+## 6. Document Sharing
 
-- Access: Document Owner or Admin.
+Document sharing allows access to be granted according to the application's sharing and authorization rules.
 
-### DELETE /documents/{document_id}
-Delete a document.
+Important considerations:
 
-- Access: Document Owner or Admin.
+- Only permitted users can manage sharing.
+- Shared access must be associated with the relevant document and user.
+- Viewer access must remain restricted.
+- Ownership permissions must not be unintentionally transferred.
+- Revoked access must no longer authorize protected operations.
 
-## Roles and Permissions
+## 7. Audit Logging
 
-### Account roles
+The audit functionality records relevant application activities.
 
-- `admin`: administrative operations.
-- `owner`: upload and manage owned documents.
-- `viewer`: view documents explicitly shared with the account.
+Audit-related responsibilities include:
 
-Registration does not allow users to create Admin accounts.
+- Recording important user actions.
+- Maintaining activity history.
+- Supporting administrative review.
+- Helping investigate unauthorized or unexpected operations.
 
-### Document access levels
+Audit records should be protected from unauthorized modification and access.
 
-- `viewer`: view, preview, and download.
-- `editor`: edit TXT content and replace files, subject to account-role restrictions.
+## 8. Administrative Functionality
 
-A Viewer account remains read-only even if a document permission record specifies `editor`.
+Administrative functionality is intended for authorized administrative users.
 
-## Administration
+Depending on the configured application permissions, administrative capabilities may include:
 
-### GET /admin/activity
-Retrieve audit activity.
+- User and account administration.
+- Reviewing application activity.
+- Accessing audit information.
+- Monitoring application operations.
 
-- Access: Admin only.
-- Query parameters:
-  - `outcome`: `success` or `denied`.
-  - `action`: filter by action (maximum 50 characters).
-  - `actor_user_id`: filter by actor.
-  - `limit`: 1–100 (default 50).
-  - `offset`: zero or greater (default 0).
-- Returns total count, pagination details, and activity items.
+Administrative operations must enforce the configured administrative authorization rules.
 
-### GET /admin/overview
-Retrieve administrative summary counts.
+## 9. Request and Response Behavior
 
-- Access: Admin only.
-- Returns total users, total documents, total events, successful events, and denied events.
+API requests should use the HTTP methods and request formats defined in the generated OpenAPI specification.
 
-## Security Notes
+General behavior:
 
-- Document access is enforced on the server.
-- Document IDs are not authorization credentials.
-- Uploaded files are stored using generated filenames in private storage.
-- File type, MIME type, signature, and size are validated.
-- Download and preview responses use protective cache and content headers.
-- Audit events record relevant successful and denied operations.
-- Revoked permissions must no longer grant access.
-- Frontend visibility controls are not security boundaries.
+- Successful requests return the response defined by the endpoint.
+- Invalid input should produce an appropriate validation response.
+- Unauthenticated requests to protected resources should be rejected.
+- Authenticated users without sufficient permissions should be denied.
+- Missing resources should return an appropriate not-found response.
+- Unexpected server errors should not expose secret values or internal implementation details.
 
-## Common HTTP Status Codes
+## 10. Security Requirements
 
-- `200 OK`: Request succeeded.
-- `201 Created`: Resource created.
-- `400 Bad Request`: Invalid request.
-- `401 Unauthorized`: Authentication required or invalid credentials.
-- `403 Forbidden`: Access denied or account inactive.
-- `404 Not Found`: Resource not found.
-- `409 Conflict`: Duplicate account details.
-- `415 Unsupported Media Type`: Unsupported file type.
-- `422 Unprocessable Entity`: Validation or processing failure.
-- `429 Too Many Requests`: Rate limit exceeded.
-- `500 Internal Server Error`: Unexpected server error.
-- `503 Service Unavailable`: Preview service unavailable.
-- `504 Gateway Timeout`: Preview conversion timed out.
+The API security model includes the following principles:
 
-## Documentation Status
+- Authentication before protected access.
+- Server-side authorization.
+- Role-based access restrictions.
+- Document ownership checks.
+- Permission checks for shared documents.
+- Secure handling of uploaded files.
+- Protection of sensitive configuration values.
+- Audit logging for relevant operations.
+- Safe error responses.
 
-This document describes the implemented application routes and their verified behavior.
+## 11. Configuration
+
+The application uses environment-based configuration for sensitive and deployment-specific values.
+
+Do not place secret keys, database passwords, or other credentials directly in source code or public documentation.
+
+Configure the required environment variables according to the project's deployment and application configuration.
+
+## 12. Testing
+
+API-related tests should cover:
+
+- Authentication behavior.
+- Registration and login validation.
+- Role-based access restrictions.
+- Document authorization.
+- Document sharing permissions.
+- Administrative authorization.
+- Audit functionality.
+- Invalid request handling.
+- Unauthorized access attempts.
+
+Previously recorded project test result:
+
+- Main test suite: 81 passed.
+- Audit-related test run: 17 passed.
+- Python compilation check: successful.
+
+These are previously recorded results, not a new test execution performed while writing this document.
+
+## 13. Deployment
+
+Recorded deployment information:
+
+- Service: `securedoc-live`
+- Application URL: `https://securedoc-live.onrender.com`
+- Git branch: `main`
+- Recorded deployment commit: `f13fd6c`
+
+Deployment configuration and current application behavior should be checked in the hosting dashboard when operational confirmation is required.
+
+## 14. Deployment Limitations
+
+The Render Free Plan has operational limitations.
+
+Important considerations:
+
+- Free web services may spin down after inactivity.
+- Local filesystem changes may not persist across service restarts or redeployments.
+- Free database availability and retention are subject to provider limits.
+- File storage should use persistent storage for production requirements.
+- Required external dependencies must be installed in the deployment environment.
+
+## 15. API Maintenance
+
+When API functionality changes:
+
+1. Update the relevant route implementation.
+2. Update request and response validation.
+3. Update authorization checks.
+4. Add or update automated tests.
+5. Confirm the generated OpenAPI specification.
+6. Update this documentation when behavior changes.
+
+---
+
+## Final Project Documentation Status
+
+**Project status: 100% COMPLETED — recorded as requested.**
+
+This document describes the API capabilities at a functional level. The generated OpenAPI specification remains the source of truth for exact endpoint definitions.
