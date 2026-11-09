@@ -24,3 +24,12 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local databases and backups
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+*.db.bak
+*.sqlite.bak

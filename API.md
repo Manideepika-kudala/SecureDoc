@@ -1,105 +1,197 @@
-# SecureDoc API Documentation
+﻿# SecureDoc API Documentation
 
 ## Overview
-SecureDoc provides secure document management and sharing through authenticated API endpoints.
 
-All document operations must enforce server-side authorization.
+SecureDoc is a secure document management application built with FastAPI.
+Routes are registered without an `/api` prefix.
+
+All protected operations require server-side authentication and authorization.
+Mutating requests are subject to CSRF protection.
 
 ## Authentication
 
-### POST /api/auth/register
-Register a user account.
+### POST /auth/register
+Register a new account.
 
-### POST /api/auth/login
-Authenticate a user and establish a session.
+- Request: username, email, password, role.
+- Allowed registration roles: `owner`, `viewer`.
+- Default role: `owner`.
+- Success: `201 Created`.
+- Duplicate username or email: `409 Conflict`.
 
-### POST /api/auth/logout
-End the current session.
+### POST /auth/login
+Authenticate using email and password.
+
+- Success: establishes a session.
+- Invalid credentials: `401 Unauthorized`.
+- Inactive account: `403 Forbidden`.
+- Rate limit exceeded: `429 Too Many Requests`.
+
+### GET /auth/me
+Return the authenticated user's account information.
+
+### POST /auth/logout
+Clear the current session.
 
 ## Documents
 
-### POST /api/documents
+### POST /documents/upload
 Upload a document.
 
-Allowed roles: Owner
+- Access: Owner or Admin.
+- Request: multipart/form-data.
+- Required field: `file`.
+- Optional field: `category` (default: `General`).
+- Maximum file size: 200 MB.
+- Supported formats: PDF, TXT, PNG, JPG, JPEG, DOCX, PPT, PPTX.
+- Success: `201 Created`.
 
-### GET /api/documents
+### GET /documents/
 List documents accessible to the authenticated user.
 
-Allowed roles: Admin, Owner, Viewer
+Supported query parameters:
 
-### GET /api/documents/{documentId}
-View document metadata.
+- `q`: search by filename, content type, category, or owner details.
+- `content_type`: filter by content type.
+- `category`: filter by category.
+- `ownership`: `all`, `owned`, or `shared`.
+- `date_from`, `date_to`: date filters in YYYY-MM-DD format.
+- `sort_by`: `filename`, `created_at`, or `file_size`.
+- `sort_order`: `asc` or `desc`.
+- `limit`: 1–100 (default 100).
+- `offset`: zero or greater (default 0).
 
-Allowed roles: Admin, Owner, explicitly authorized users
+Results are filtered according to the user's access rights.
 
-### GET /api/documents/{documentId}/download
-Download a document.
+### GET /documents/{document_id}/edit
+Retrieve editable TXT document content.
 
-Allowed roles: Owner, users with READ or EDIT permission
+- Access: Owner/Admin or authorized editor.
+- TXT files only.
+- Maximum editable size: 5 MB.
 
-### PUT /api/documents/{documentId}
-Update document metadata or content.
+### PUT /documents/{document_id}/edit
+Update TXT document content.
 
-Allowed roles: Owner, users with EDIT permission
+- Access: Owner/Admin or authorized editor.
+- Request JSON: `{"content": "updated text"}`.
+- TXT files only.
+- Maximum content size: 5 MB.
 
-### DELETE /api/documents/{documentId}
+### PUT /documents/{document_id}/replace
+Replace an existing document file.
+
+- Access: Owner/Admin or authorized editor.
+- Request: multipart/form-data with `file`.
+- Replacement must use the same supported file extension.
+- Maximum file size: 200 MB.
+
+### GET /documents/{document_id}/preview
+Preview a supported document.
+
+- Access: authenticated users with document viewing permission.
+- Supported formats: PDF, PNG, JPG, JPEG, TXT, PPT, PPTX.
+- PPT/PPTX preview requires LibreOffice conversion.
+
+### GET /documents/{document_id}/download
+Download the original document.
+
+- Access: authenticated users with document viewing permission.
+
+### GET /documents/{document_id}/users/search
+Search active users for document sharing.
+
+- Access: Document Owner or Admin.
+- Query parameter: `q` (minimum 2 characters).
+- Excludes the current user.
+
+### GET /documents/{document_id}/permissions
+List users who have access to a document.
+
+- Access: Document Owner or Admin.
+
+### POST /documents/{document_id}/permissions
+Grant or update document access.
+
+- Access: Document Owner or Admin.
+- Request JSON: `{"user_id": 2, "access_level": "viewer"}`.
+- Access levels: `viewer`, `editor`.
+- Target user must be active and cannot be the current user.
+
+### DELETE /documents/{document_id}/permissions/{target_user_id}
+Revoke a user's document access.
+
+- Access: Document Owner or Admin.
+
+### DELETE /documents/{document_id}
 Delete a document.
 
-Allowed roles: Owner
+- Access: Document Owner or Admin.
 
-## Permissions
+## Roles and Permissions
 
-### POST /api/documents/{documentId}/permissions
-Grant document access to a named user.
+### Account roles
 
-Allowed roles: Owner
+- `admin`: administrative operations.
+- `owner`: upload and manage owned documents.
+- `viewer`: view documents explicitly shared with the account.
 
-### DELETE /api/documents/{documentId}/permissions/{userId}
-Revoke document access.
+Registration does not allow users to create Admin accounts.
 
-Allowed roles: Owner
+### Document access levels
 
-## Search
+- `viewer`: view, preview, and download.
+- `editor`: edit TXT content and replace files, subject to account-role restrictions.
 
-### GET /api/documents/search
-Search by document name, owner, category, and date.
+A Viewer account remains read-only even if a document permission record specifies `editor`.
 
-Allowed roles: Authenticated users
+## Administration
 
-Search results must be filtered by authorization.
+### GET /admin/activity
+Retrieve audit activity.
 
-## Audit
+- Access: Admin only.
+- Query parameters:
+  - `outcome`: `success` or `denied`.
+  - `action`: filter by action (maximum 50 characters).
+  - `actor_user_id`: filter by actor.
+  - `limit`: 1–100 (default 50).
+  - `offset`: zero or greater (default 0).
+- Returns total count, pagination details, and activity items.
 
-### GET /api/admin/audit
-View audit records.
+### GET /admin/overview
+Retrieve administrative summary counts.
 
-Allowed roles: Admin
+- Access: Admin only.
+- Returns total users, total documents, total events, successful events, and denied events.
 
-### GET /api/admin/activity
-View document activity.
+## Security Notes
 
-Allowed roles: Admin
+- Document access is enforced on the server.
+- Document IDs are not authorization credentials.
+- Uploaded files are stored using generated filenames in private storage.
+- File type, MIME type, signature, and size are validated.
+- Download and preview responses use protective cache and content headers.
+- Audit events record relevant successful and denied operations.
+- Revoked permissions must no longer grant access.
+- Frontend visibility controls are not security boundaries.
 
-## Authorization Requirements
+## Common HTTP Status Codes
 
-- Every document endpoint must validate access on the server.
-- Document IDs must not be treated as authorization credentials.
-- Unauthorized requests must not reveal document contents.
-- Denied access attempts must be recorded in the audit trail.
-- Revoked permissions must stop granting access immediately.
-- Frontend visibility checks are not security controls.
+- `200 OK`: Request succeeded.
+- `201 Created`: Resource created.
+- `400 Bad Request`: Invalid request.
+- `401 Unauthorized`: Authentication required or invalid credentials.
+- `403 Forbidden`: Access denied or account inactive.
+- `404 Not Found`: Resource not found.
+- `409 Conflict`: Duplicate account details.
+- `415 Unsupported Media Type`: Unsupported file type.
+- `422 Unprocessable Entity`: Validation or processing failure.
+- `429 Too Many Requests`: Rate limit exceeded.
+- `500 Internal Server Error`: Unexpected server error.
+- `503 Service Unavailable`: Preview service unavailable.
+- `504 Gateway Timeout`: Preview conversion timed out.
 
-## Status Codes
+## Documentation Status
 
-- 200 OK: Request succeeded.
-- 201 Created: Resource created.
-- 400 Bad Request: Invalid input.
-- 401 Unauthorized: Authentication required.
-- 403 Forbidden: Access denied.
-- 404 Not Found: Resource does not exist.
-- 500 Internal Server Error: Unexpected server failure.
-
-## Implementation Status
-
-This document describes the planned API contract. Endpoint availability and behavior must be verified against the implemented application.
+This document describes the implemented application routes and their verified behavior.

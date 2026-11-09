@@ -221,19 +221,29 @@
     </section>
 
     <section class="stats">
-        <h2>Shared Files</h2>
+        <h2>Received Files</h2>
         <h1 id="shared-count">0</h1>
         <p>Documents shared with you</p>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="upload-panel">
         <h2>Upload Documents</h2>
 
         <form id="upload-form" class="upload-form">
+            <select id="document-category" required>
+                <option value="General">General</option>
+                <option value="Finance">Finance</option>
+                <option value="HR">HR</option>
+                <option value="Legal">Legal</option>
+                <option value="Contracts">Contracts</option>
+                <option value="Reports">Reports</option>
+                <option value="Other">Other</option>
+            </select>
+
             <input
                 type="file"
                 id="document-file"
-                accept=".pdf,.txt,.png,.jpg,.jpeg,.docx"
+                accept=".pdf,.txt,.png,.jpg,.jpeg,.docx,.ppt,.pptx"
                 required
             >
 
@@ -246,7 +256,7 @@
     </section>
 
     <section class="panel">
-        <h2>📁 My Documents</h2>
+        <h2>&#128193; My Documents</h2>
 
         <div id="my-documents-list">
             <p class="empty-message">Loading your documents...</p>
@@ -254,7 +264,7 @@
     </section>
 
     <section class="panel">
-        <h2>📩 Shared With Me</h2>
+        <h2>&#128233; Received Files</h2>
 
         <div id="shared-documents-list">
             <p class="empty-message">Loading shared documents...</p>
@@ -290,6 +300,7 @@
 <script>
     const myDocumentsList = document.getElementById("my-documents-list");
     const sharedDocumentsList = document.getElementById("shared-documents-list");
+    let currentUserRole = null;
 
     function showMessage(elementId, message) {
         document.getElementById(elementId).textContent = message;
@@ -308,11 +319,22 @@
 
             const user = await response.json();
 
+            currentUserRole = user.is_admin || user.role === "admin"
+                ? "admin"
+                : user.role;
+
             document.getElementById("welcome-message").textContent =
-                "Welcome, " + user.username + "!";
+                "Welcome, " + user.username + "! (" +
+                String(currentUserRole || "user").toUpperCase() + ")";
+
+            document.getElementById("upload-panel").hidden =
+                currentUserRole === "viewer";
+
+            return true;
 
         } catch {
             window.location.href = "/login";
+            return false;
         }
     }
 
@@ -428,6 +450,8 @@
         const item = document.createElement("div");
         item.className = "document-item";
 
+        const extension = doc.filename.split(".").pop().toLowerCase();
+
         const info = document.createElement("div");
         info.className = "document-info";
 
@@ -435,7 +459,9 @@
         name.textContent = doc.filename;
 
         const details = document.createElement("p");
-        details.textContent = formatSize(doc.file_size);
+        details.textContent =
+            formatSize(doc.file_size) + " ? Category: " +
+            (doc.category || "General");
 
         info.append(name, details);
 
@@ -489,27 +515,26 @@
         const previewButton = document.createElement("button");
         previewButton.className = "action-btn";
         previewButton.type = "button";
-        previewButton.textContent = "Preview";
 
-        previewButton.addEventListener("click", () => {
-            window.open(
-                `/documents/${doc.id}/preview`,
-                "_blank",
-                "noopener"
-            );
-        });
+        if (["pdf", "png", "jpg", "jpeg", "txt", "ppt", "pptx"].includes(extension)) {
+            previewButton.textContent = "Preview";
+            previewButton.addEventListener("click", () => {
+                window.open(`/documents/${doc.id}/preview`, "_blank", "noopener");
+            });
+        } else {
+            previewButton.textContent = "Preview unavailable";
+            previewButton.disabled = true;
+            previewButton.title = "Download this file to view it.";
+        }
 
         actions.appendChild(previewButton);
         actions.appendChild(downloadButton);
 
         const canModify =
-            !isShared || doc.access_level === "editor";
+            currentUserRole !== "viewer" &&
+            (!isShared || doc.access_level === "editor");
 
         if (canModify) {
-            const extension = doc.filename
-                .split(".")
-                .pop()
-                .toLowerCase();
 
             if (extension === "txt") {
                 const editButton = document.createElement("button");
@@ -598,7 +623,10 @@
 
 
 
-        if (!isShared) {
+        const canManageDocument =
+            currentUserRole === "owner" || currentUserRole === "admin";
+
+        if (!isShared && canManageDocument) {
             const shareButton = document.createElement("button");
             shareButton.className = "action-btn";
             shareButton.type = "button";
@@ -609,6 +637,53 @@
             });
 
             actions.appendChild(shareButton);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "action-btn";
+            deleteButton.type = "button";
+            deleteButton.textContent = "Delete";
+
+            deleteButton.addEventListener("click", async () => {
+                if (!window.confirm(
+                    "Are you sure you want to permanently delete this document?"
+                )) {
+                    return;
+                }
+
+                deleteButton.disabled = true;
+                deleteButton.textContent = "Deleting...";
+
+                try {
+                    const response = await fetch(
+                        `/documents/${doc.id}`,
+                        {
+                            method: "DELETE",
+                            credentials: "same-origin"
+                        }
+                    );
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            result.detail || "Document deletion failed"
+                        );
+                    }
+
+                    showMessage(
+                        "documents-message",
+                        "Document deleted successfully."
+                    );
+                    await loadDocuments();
+
+                } catch (error) {
+                    showMessage("documents-message", error.message);
+                    deleteButton.disabled = false;
+                    deleteButton.textContent = "Delete";
+                }
+            });
+
+            actions.appendChild(deleteButton);
         }
 
         item.append(info, actions);
@@ -682,6 +757,10 @@
 
         const formData = new FormData();
         formData.append("file", file);
+        formData.append(
+            "category",
+            document.getElementById("document-category").value
+        );
 
         showMessage("upload-message", "Uploading...");
 
@@ -701,6 +780,7 @@
             showMessage("upload-message", result.message);
 
             fileInput.value = "";
+            document.getElementById("document-category").value = "General";
             await loadDocuments();
 
         } catch (error) {
@@ -733,7 +813,7 @@
             link.click();
             link.remove();
 
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
 
             showMessage("documents-message", "Download successful.");
 
@@ -764,8 +844,11 @@
         }
     });
 
-    loadUser();
-    loadDocuments();
+    loadUser().then(isAuthenticated => {
+        if (isAuthenticated) {
+            loadDocuments();
+        }
+    });
 </script>
 
 </body>

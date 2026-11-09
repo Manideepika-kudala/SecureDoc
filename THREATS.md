@@ -1,7 +1,6 @@
 ﻿# SecureDoc - Security Threat Model
 
 **Project:** SecureDoc
-**Assessment Date:** 05 November 2026
 **Application:** Secure Document Management and Sharing System
 
 ---

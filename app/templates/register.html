@@ -51,7 +51,8 @@
             font-weight: 600;
         }
 
-        .register-card input {
+        .register-card input,
+        .register-card select {
             width: 100%;
             padding: 14px;
             border: 1px solid #DED3C9;
@@ -61,7 +62,8 @@
             outline: none;
         }
 
-        .register-card input:focus {
+        .register-card input:focus,
+        .register-card select:focus {
             border-color: #C8754D;
             box-shadow: 0 0 0 3px #C8754D20;
         }
@@ -81,6 +83,11 @@
 
         .register-card button:hover {
             background: #B66440;
+        }
+
+        .register-card button:disabled {
+            opacity: 0.7;
+            cursor: wait;
         }
 
         #message {
@@ -108,7 +115,8 @@
             }
         }
     </style>
-<script src="/static/js/csrf.js"></script></head>
+    <script src="/static/js/csrf.js"></script>
+</head>
 <body>
 
     <main class="register-card">
@@ -121,43 +129,53 @@
             <label for="username">Username</label>
             <input type="text" id="username" name="username"
                    minlength="3" maxlength="80" required
+                   autocomplete="username"
                    placeholder="Choose a username">
 
             <label for="email">Email Address</label>
             <input type="email" id="email" name="email"
-                   required placeholder="you@example.com">
+                   required autocomplete="email"
+                   placeholder="you@example.com">
 
             <label for="password">Password</label>
             <input type="password" id="password" name="password"
                    minlength="8" maxlength="128" required
+                   autocomplete="new-password"
                    placeholder="At least 8 characters">
+
+            <label for="role">Account Role</label>
+            <select id="role" name="role" required>
+                <option value="owner">Owner</option>
+                <option value="viewer">Viewer</option>
+            </select>
 
             <button type="submit" id="registerButton">
                 Create My Account
             </button>
 
-            <p id="message" role="status"></p>
+            <p id="message" role="status" aria-live="polite"></p>
         </form>
 
-        <a href="/" class="back-home">← Back to Home</a>
+        <a href="/" class="back-home">? Back to Home</a>
     </main>
 
     <script>
-        const form = document.getElementById("registerForm");
+        const registerForm = document.getElementById("registerForm");
+        const registerButton = document.getElementById("registerButton");
         const message = document.getElementById("message");
-        const button = document.getElementById("registerButton");
 
-        form.addEventListener("submit", async (event) => {
+        registerForm.addEventListener("submit", async function (event) {
             event.preventDefault();
 
             message.textContent = "";
-            button.disabled = true;
-            button.textContent = "Creating account...";
+            registerButton.disabled = true;
+            registerButton.textContent = "Creating Account...";
 
-            const userData = {
+            const payload = {
                 username: document.getElementById("username").value.trim(),
                 email: document.getElementById("email").value.trim(),
-                password: document.getElementById("password").value
+                password: document.getElementById("password").value,
+                role: document.getElementById("role").value
             };
 
             try {
@@ -166,35 +184,39 @@
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify(userData)
+                    body: JSON.stringify(payload)
                 });
 
-                const result = await response.json();
+                const data = await response.json();
 
                 if (!response.ok) {
-                    const detail = result.detail;
-                    message.style.color = "#B33A3A";
-                    message.textContent = typeof detail === "string"
-                        ? detail
-                        : "Please check your information and try again.";
-                    return;
+                    let errorMessage = data.detail || "Registration failed.";
+
+                    if (Array.isArray(errorMessage)) {
+                        errorMessage = errorMessage
+                            .map(error => error.msg || "Invalid input")
+                            .join(" ");
+                    }
+
+                    throw new Error(errorMessage);
                 }
 
-                message.style.color = "#477044";
-                message.textContent = "Account created successfully! Your SecureDoc account is ready.";
-                form.reset();
+                message.style.color = "#287A45";
+                message.textContent = "Account created successfully. Redirecting to login...";
+
+                registerForm.reset();
+
+                setTimeout(() => {
+                    window.location.href = "/login";
+                }, 1000);
 
             } catch (error) {
-                message.style.color = "#B33A3A";
-                message.textContent = "Unable to connect. Please try again.";
-            } finally {
-                button.disabled = false;
-                button.textContent = "Create My Account";
+                message.style.color = "#B3261E";
+                message.textContent = error.message || "Unable to create account. Please try again.";
+                registerButton.disabled = false;
+                registerButton.textContent = "Create My Account";
             }
         });
     </script>
-
 </body>
 </html>
-
-

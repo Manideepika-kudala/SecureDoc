@@ -1,4 +1,6 @@
-﻿from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+﻿from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 COMMON_PASSWORDS = {
@@ -17,6 +19,7 @@ class UserRegister(BaseModel):
     username: str = Field(min_length=3, max_length=80)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    role: Literal["owner", "viewer"] = "owner"
 
     @field_validator("password")
     @classmethod
@@ -38,3 +41,4 @@ class UserResponse(BaseModel):
     username: str
     email: EmailStr
     is_active: bool
+    role: str

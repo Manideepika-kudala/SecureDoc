@@ -1,24 +1,20 @@
-# SecureDoc - Problem Statement
+ï»¿# SecureDoc - Project Problem Statement
 
-## Snovasys Fresher Hiring Challenge 2026
+## Project Overview
 
-*Challenge:* TrustVault — Secure Document Sharing with a Real Audit Trail
-
-*Project Name:* SecureDoc
-
-*Duration:* November 1–7, 2026
+SecureDoc is a secure document-sharing platform with role-based access control and a tamper-resistant audit trail.
 
 ## Problem
 
 Organizations share confidential documents with employees, customers, and external partners. Unauthorized access, excessive permissions, and missing audit evidence create security and compliance risks.
 
-SecureDoc aims to build a secure document-sharing platform where only explicitly authorized users can access documents and every important action is recorded in a tamper-resistant audit trail.
+SecureDoc aims to provide a secure document-sharing platform where only explicitly authorized users can access documents and important actions are recorded in an append-only audit trail.
 
 ## Functional Requirements
 
 1. Authentication with Admin, Owner, and Viewer roles.
 2. Upload, organize, search, and manage documents.
-3. Grant per-document READ and EDIT permissions to named users.
+3. Grant per-document VIEWER and EDITOR permissions to named users.
 4. Owners can grant and revoke document access.
 5. Unauthorized users cannot read, download, modify, or delete documents.
 6. Audit uploads, downloads, changes, deletions, and permission changes.
@@ -34,15 +30,15 @@ SecureDoc aims to build a secure document-sharing platform where only explicitly
 - Immediate access revocation.
 - Append-only audit trail.
 - Protection against IDOR and unauthorized document access.
-- Honest threat documentation and security test evidence.
+- Accurate threat documentation and security test evidence.
 
-## Deliverables
+## Project Deliverables
 
-- Public Git repository with daily commit history.
-- Live deployment with seeded accounts.
+- Source code repository.
+- Deployment configuration and setup instructions.
 - THREATS.md and PROMPTS.md.
 - Automated tests.
 - Database schema and setup scripts.
 - API documentation.
-- Five-minute demo video.
-- Project write-up.
+- Application demonstration video.
+- Project documentation and implementation report.

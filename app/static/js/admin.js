@@ -1,4 +1,4 @@
-ï»¿const message = document.getElementById("admin-message");
+const message = document.getElementById("admin-message");
 const tableBody = document.getElementById("activity-table-body");
 
 function setText(id, value) {
@@ -37,7 +37,11 @@ async function loadActivity() {
     tableBody.replaceChildren();
 
     try {
-        const response = await fetch("/admin/activity?limit=10", {
+        const selectedAction = document.getElementById("activity-action-filter").value;
+        const activityUrl = new URL("/admin/activity", window.location.origin);
+        activityUrl.searchParams.set("limit", "10");
+        if (selectedAction) activityUrl.searchParams.set("action", selectedAction);
+        const response = await fetch(activityUrl, {
             credentials: "same-origin"
         });
 
@@ -70,7 +74,7 @@ async function loadActivity() {
                 event.id,
                 event.action,
                 event.actor_user_id ?? "System",
-                event.document_id ?? "â€”"
+                event.document_id ?? "—"
             ];
 
             values.forEach(value => {
@@ -89,7 +93,7 @@ async function loadActivity() {
             const dateCell = document.createElement("td");
             dateCell.textContent = event.created_at
                 ? new Date(event.created_at).toLocaleString()
-                : "â€”";
+                : "—";
             row.appendChild(dateCell);
 
             tableBody.appendChild(row);
@@ -110,6 +114,9 @@ async function loadActivity() {
 async function refreshDashboard() {
     await Promise.all([loadOverview(), loadActivity()]);
 }
+
+document.getElementById("activity-action-filter")
+    .addEventListener("change", loadActivity);
 
 document.getElementById("refresh-button")
     .addEventListener("click", refreshDashboard);
@@ -133,3 +140,4 @@ document.getElementById("logout-button")
     });
 
 refreshDashboard();
+

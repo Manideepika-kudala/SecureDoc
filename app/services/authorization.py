@@ -43,7 +43,7 @@ def get_current_active_user(
 def get_current_admin_user(
     user: User = Depends(get_current_active_user)
 ) -> User:
-    if not user.is_admin:
+    if user.role != "admin" and not user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
@@ -101,6 +101,34 @@ def get_authorized_document(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found"
+        )
+
+    account_role = "admin" if user.is_admin or user.role == "admin" else user.role
+
+    if account_role == "viewer" and required_level == "editor":
+        _record_denied_access(
+            user=user,
+            document_id=document_id,
+            reason="viewer_account_is_read_only",
+            required_level=required_level,
+            request=request
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Viewer accounts have read-only access"
+        )
+
+    if account_role == "viewer" and document.owner_id == user.id:
+        _record_denied_access(
+            user=user,
+            document_id=document_id,
+            reason="viewer_document_requires_explicit_sharing",
+            required_level=required_level,
+            request=request
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Viewer accounts can access only explicitly shared documents"
         )
 
     if document.owner_id == user.id:

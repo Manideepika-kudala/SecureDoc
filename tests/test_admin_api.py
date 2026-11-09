@@ -84,6 +84,7 @@ def test_admin_can_view_activity(api):
         user.is_admin = True
         db.commit()
 
+        db.query(AuditLog).delete()
         db.add(
             AuditLog(
                 actor_user_id=user.id,
@@ -191,6 +192,7 @@ def test_admin_can_view_overview(api):
         user.is_admin = True
         db.commit()
 
+        db.query(AuditLog).delete()
         db.add(
             AuditLog(
                 actor_user_id=user.id,
@@ -271,3 +273,56 @@ def test_admin_activity_rejects_sql_injection_payload(api):
     data = response.json()
     assert data["total"] == 0
     assert data["items"] == []
+
+
+def test_admin_can_filter_permission_change_events(api):
+    client, TestingSession = api
+
+    register_and_login(
+        client, "permission_admin", "permissionadmin@example.com"
+    )
+
+    with TestingSession() as db:
+        admin_user = db.query(User).filter_by(
+            username="permission_admin"
+        ).one()
+        admin_user.is_admin = True
+
+        db.query(AuditLog).delete()
+
+        db.add_all([
+            AuditLog(
+                actor_user_id=admin_user.id,
+                action="permission_grant",
+                outcome="success",
+                details={"access_level": "viewer"}
+            ),
+            AuditLog(
+                actor_user_id=admin_user.id,
+                action="permission_update",
+                outcome="success",
+                details={"access_level": "editor"}
+            ),
+            AuditLog(
+                actor_user_id=admin_user.id,
+                action="permission_revoke",
+                outcome="success",
+                details={}
+            ),
+        ])
+        db.commit()
+
+    for action in (
+        "permission_grant",
+        "permission_update",
+        "permission_revoke"
+    ):
+        response = client.get(
+            "/admin/activity",
+            params={"action": action}
+        )
+
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["action"] == action

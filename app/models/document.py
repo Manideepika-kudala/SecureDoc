@@ -42,6 +42,12 @@ class Document(Base):
         nullable=False
     )
 
+    category: Mapped[str] = mapped_column(
+        String(80),
+        default="General",
+        nullable=False
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

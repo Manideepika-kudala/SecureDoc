@@ -39,18 +39,21 @@ def sample_data(db):
         username="owner",
         email="owner@example.com",
         password_hash="test_hash",
+        role="owner",
         is_active=True
     )
     viewer = User(
         username="viewer",
         email="viewer@example.com",
         password_hash="test_hash",
+        role="viewer",
         is_active=True
     )
     editor = User(
         username="editor",
         email="editor@example.com",
         password_hash="test_hash",
+        role="owner",
         is_active=True
     )
 
@@ -139,7 +142,7 @@ def test_viewer_cannot_edit_document(db, sample_data):
         outcome="denied"
     ).one()
 
-    assert audit_event.details["reason"] == "insufficient_permission"
+    assert audit_event.details["reason"] == "viewer_account_is_read_only"
     assert audit_event.details["required_level"] == "editor"
 
 
@@ -171,6 +174,7 @@ def test_unshared_user_cannot_access_document(db, sample_data):
         username="outsider",
         email="outsider@example.com",
         password_hash="test_hash",
+        role="viewer",
         is_active=True
     )
     db.add(unauthorized_user)
@@ -193,3 +197,60 @@ def test_unshared_user_cannot_access_document(db, sample_data):
     ).one()
 
     assert audit_event.details["reason"] == "no_permission"
+
+
+
+def test_viewer_cannot_access_own_document_without_explicit_sharing(db, sample_data):
+    viewer_document = Document(
+        owner_id=sample_data["viewer"].id,
+        original_filename="viewer_owned.pdf",
+        stored_filename="viewer_owned_test.pdf",
+        content_type="application/pdf",
+        file_size=100
+    )
+    db.add(viewer_document)
+    db.commit()
+
+    with pytest.raises(HTTPException) as error:
+        get_authorized_document(
+            viewer_document.id,
+            sample_data["viewer"],
+            db,
+            required_level="viewer"
+        )
+
+    assert error.value.status_code == 403
+
+    audit_event = db.query(AuditLog).filter_by(
+        actor_user_id=sample_data["viewer"].id,
+        document_id=viewer_document.id,
+        action="document_access",
+        outcome="denied"
+    ).one()
+
+    assert audit_event.details["reason"] == "viewer_document_requires_explicit_sharing"
+
+
+def test_viewer_cannot_edit_even_with_editor_permission(db, sample_data):
+    permission = sample_data["viewer_permission"]
+    permission.access_level = "editor"
+    db.commit()
+
+    with pytest.raises(HTTPException) as error:
+        get_authorized_document(
+            sample_data["document"].id,
+            sample_data["viewer"],
+            db,
+            required_level="editor"
+        )
+
+    assert error.value.status_code == 403
+
+    audit_event = db.query(AuditLog).filter_by(
+        actor_user_id=sample_data["viewer"].id,
+        document_id=sample_data["document"].id,
+        action="document_access",
+        outcome="denied"
+    ).one()
+
+    assert audit_event.details["reason"] == "viewer_account_is_read_only"

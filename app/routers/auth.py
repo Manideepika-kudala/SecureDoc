@@ -75,7 +75,9 @@ def register_user(
     new_user = User(
         username=user_data.username,
         email=user_data.email,
-        password_hash=hash_password(user_data.password)
+        password_hash=hash_password(user_data.password),
+        role=user_data.role,
+        is_admin=False
     )
 
     db.add(new_user)
@@ -176,7 +178,8 @@ def login_user(
 
     return {
         "message": "Login successful",
-        "username": user.username
+        "username": user.username,
+        "role": "admin" if user.is_admin else user.role
     }
 
 
@@ -186,7 +189,9 @@ def get_current_user(
 ):
     return {
         "user_id": user.id,
-        "username": user.username
+        "username": user.username,
+        "role": "admin" if user.is_admin else user.role,
+        "is_admin": user.is_admin
     }
 
 

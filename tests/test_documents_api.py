@@ -1,5 +1,6 @@
-﻿import io
+import io
 import zipfile
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -129,11 +130,62 @@ def test_document_preview_returns_inline_pdf(api):
 
     response = api.get(f"/documents/{document_id}/preview")
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     assert response.content.startswith(b"%PDF-")
     assert response.headers["content-type"].startswith("application/pdf")
     assert response.headers["content-disposition"] == "inline"
     assert response.headers["x-content-type-options"] == "nosniff"
+
+
+def test_pptx_preview_converts_to_pdf(api, tmp_path, monkeypatch):
+    register_and_login(api, "pptx_preview_owner", "pptx_preview_owner@example.com")
+
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as office_file:
+        office_file.writestr("[Content_Types].xml", "<Types></Types>")
+        office_file.writestr("ppt/presentation.xml", "<presentation></presentation>")
+
+    upload_response = api.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "sample.pptx",
+                archive.getvalue(),
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            )
+        }
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    document_id = upload_response.json()["document_id"]
+
+    fake_soffice = tmp_path / "soffice.com"
+    fake_soffice.touch()
+    monkeypatch.setattr(documents_router, "SOFFICE_PATH", fake_soffice)
+
+    conversion_directories = []
+
+    def fake_conversion(command, **kwargs):
+        output_directory = Path(command[command.index("--outdir") + 1])
+        source_file = Path(command[-1])
+        output_file = output_directory / f"{source_file.stem}.pdf"
+        output_file.write_bytes(b"%PDF-1.4\nMock presentation preview")
+
+        conversion_directories.append(output_directory.parent)
+
+        return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(documents_router.subprocess, "run", fake_conversion)
+
+    response = api.get(f"/documents/{document_id}/preview")
+
+    assert response.status_code == 200, response.text
+    assert response.content.startswith(b"%PDF-")
+    assert response.headers["content-type"].startswith("application/pdf")
+    assert response.headers["content-disposition"] == "inline"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["cache-control"] == "private, no-store, max-age=0"
+    assert conversion_directories
+    assert all(not directory.exists() for directory in conversion_directories)
 
 
 def test_grant_and_revoke_permission(api):
@@ -213,7 +265,7 @@ def test_document_list_shows_owned_documents(api):
 
     response = api.get("/documents/")
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     assert len(response.json()) == 1
     assert response.json()[0]["filename"] == "sample.pdf"
     assert response.json()[0]["is_owner"] is True
@@ -305,6 +357,11 @@ def test_owner_can_replace_document_file(api):
 
     assert replace_response.status_code == 200, replace_response.text
     assert replace_response.json()["document_id"] == document_id
+    assert replace_response.json()["filename"] == "replacement.pdf"
+
+    list_response = api.get("/documents/")
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["filename"] == "replacement.pdf"
 
     download_response = api.get(
         f"/documents/{document_id}/download"
@@ -692,4 +749,264 @@ def test_upload_rejects_file_over_configured_size_limit(api, monkeypatch):
 
     assert response.status_code == 413
     assert "Maximum file size" in response.text
+
+def test_replace_rejects_invalid_pptx_and_preserves_original(api):
+    register_and_login(api, "pptx_replace_owner", "pptx_replace_owner@example.com")
+
+    original_archive = io.BytesIO()
+    with zipfile.ZipFile(original_archive, "w") as office_file:
+        office_file.writestr("[Content_Types].xml", "<Types></Types>")
+        office_file.writestr("ppt/presentation.xml", "<presentation></presentation>")
+
+    original_content = original_archive.getvalue()
+
+    upload_response = api.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "original.pptx",
+                original_content,
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            )
+        }
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    document_id = upload_response.json()["document_id"]
+
+    invalid_archive = io.BytesIO()
+    with zipfile.ZipFile(invalid_archive, "w") as office_file:
+        office_file.writestr("[Content_Types].xml", "<Types></Types>")
+
+    replace_response = api.put(
+        f"/documents/{document_id}/replace",
+        files={
+            "file": (
+                "invalid.pptx",
+                invalid_archive.getvalue(),
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            )
+        }
+    )
+
+    assert replace_response.status_code == 400
+    assert "Invalid Office document structure" in replace_response.text
+
+    download_response = api.get(f"/documents/{document_id}/download")
+    assert download_response.status_code == 200
+    assert download_response.content == original_content
+
+
+
+
+
+
+
+def test_viewer_cannot_upload_share_revoke_or_delete(api):
+    register_and_login(api, "role_owner", "role_owner@example.com")
+
+    upload_response = upload_pdf(api)
+    assert upload_response.status_code == 201, upload_response.text
+    document_id = upload_response.json()["document_id"]
+    owner_id = api.get("/auth/me").json()["user_id"]
+
+    api.post("/auth/logout")
+
+    viewer_registration = api.post(
+        "/auth/register",
+        json={
+            "username": "role_viewer",
+            "email": "role_viewer@example.com",
+            "password": "T3st!SecurePassw0rd",
+            "role": "viewer"
+        }
+    )
+    assert viewer_registration.status_code == 201, viewer_registration.text
+
+    register_and_login(api, "role_owner", "role_owner@example.com")
+    viewer_id = None
+
+    api.post("/auth/logout")
+    response = api.post(
+        "/auth/login",
+        json={
+            "email": "role_viewer@example.com",
+            "password": "T3st!SecurePassw0rd"
+        }
+    )
+    assert response.status_code == 200, response.text
+    viewer_id = api.get("/auth/me").json()["user_id"]
+
+    api.post("/auth/logout")
+    register_and_login(api, "role_owner", "role_owner@example.com")
+
+    grant_response = api.post(
+        f"/documents/{document_id}/permissions",
+        json={"user_id": viewer_id, "access_level": "viewer"}
+    )
+    assert grant_response.status_code == 200, grant_response.text
+
+    api.post("/auth/logout")
+    response = api.post(
+        "/auth/login",
+        json={
+            "email": "role_viewer@example.com",
+            "password": "T3st!SecurePassw0rd"
+        }
+    )
+    assert response.status_code == 200, response.text
+
+    upload_denied = upload_pdf(api)
+    assert upload_denied.status_code == 403
+
+    grant_denied = api.post(
+        f"/documents/{document_id}/permissions",
+        json={"user_id": owner_id, "access_level": "editor"}
+    )
+    assert grant_denied.status_code == 403
+
+    revoke_denied = api.delete(
+        f"/documents/{document_id}/permissions/{viewer_id}"
+    )
+    assert revoke_denied.status_code == 403
+
+    delete_denied = api.delete(f"/documents/{document_id}")
+    assert delete_denied.status_code == 403
+
+    download_allowed = api.get(
+        f"/documents/{document_id}/download"
+    )
+    assert download_allowed.status_code == 200
+
+
+def test_document_category_upload_and_filter(api):
+    register_and_login(api, "category_owner", "category_owner@example.com")
+
+    hr_upload = api.post(
+        "/documents/upload",
+        data={"category": "HR"},
+        files={"file": ("hr-policy.pdf", b"%PDF-1.4\nHR policy", "application/pdf")}
+    )
+    assert hr_upload.status_code == 201, hr_upload.text
+    assert hr_upload.json()["category"] == "HR"
+
+    finance_upload = api.post(
+        "/documents/upload",
+        data={"category": "Finance"},
+        files={"file": ("finance-report.pdf", b"%PDF-1.4\nFinance report", "application/pdf")}
+    )
+    assert finance_upload.status_code == 201, finance_upload.text
+    assert finance_upload.json()["category"] == "Finance"
+
+    all_documents = api.get("/documents/")
+    assert all_documents.status_code == 200, all_documents.text
+    assert len(all_documents.json()) == 2
+
+    hr_documents = api.get("/documents/", params={"category": "HR"})
+    assert hr_documents.status_code == 200, hr_documents.text
+    assert len(hr_documents.json()) == 1
+    assert hr_documents.json()[0]["category"] == "HR"
+    assert hr_documents.json()[0]["filename"] == "hr-policy.pdf"
+
+
+def test_uploaded_document_is_not_publicly_accessible(api):
+    register_and_login(api, "private_storage_owner", "private_storage_owner@example.com")
+
+    upload_response = upload_pdf(api)
+    assert upload_response.status_code == 201, upload_response.text
+    document_id = upload_response.json()["document_id"]
+
+    db_generator = app.dependency_overrides[get_db]()
+    db = next(db_generator)
+
+    try:
+        stored_document = db.get(document.Document, document_id)
+        assert stored_document is not None
+        stored_filename = stored_document.stored_filename
+    finally:
+        db_generator.close()
+
+    stored_file = documents_router.STORAGE_DIR / stored_filename
+    assert stored_file.is_file()
+
+    storage_url_response = api.get(
+        f"/storage/uploads/{stored_filename}"
+    )
+    assert storage_url_response.status_code == 404
+
+    uploads_url_response = api.get(
+        f"/uploads/{stored_filename}"
+    )
+    assert uploads_url_response.status_code == 404
+
+def test_edit_preserves_committed_file_when_backup_cleanup_fails(api, monkeypatch):
+    register_and_login(api, "cleanup_edit_owner", "cleanup_edit_owner@example.com")
+
+    upload_response = api.post(
+        "/documents/upload",
+        files={"file": ("cleanup.txt", b"Original content", "text/plain")}
+    )
+    assert upload_response.status_code == 201, upload_response.text
+    document_id = upload_response.json()["document_id"]
+    stored_file = next(documents_router.STORAGE_DIR.iterdir())
+
+    original_unlink = Path.unlink
+    backup_paths = []
+
+    def fail_backup_cleanup(path, *args, **kwargs):
+        if path.suffix == ".bak":
+            backup_paths.append(path)
+            raise PermissionError("Simulated backup lock")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_backup_cleanup)
+
+    updated_content = "Updated content after commit"
+    response = api.put(
+        f"/documents/{document_id}/edit",
+        json={"content": updated_content}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["file_size"] == len(updated_content.encode("utf-8"))
+    assert stored_file.read_bytes() == updated_content.encode("utf-8")
+    assert len(backup_paths) == 1
+    assert backup_paths[0].is_file()
+    assert backup_paths[0].read_bytes() == b"Original content"
+
+
+def test_replace_preserves_committed_file_when_backup_cleanup_fails(api, monkeypatch):
+    register_and_login(api, "cleanup_replace_owner", "cleanup_replace_owner@example.com")
+
+    upload_response = upload_pdf(api)
+    assert upload_response.status_code == 201, upload_response.text
+    document_id = upload_response.json()["document_id"]
+    stored_file = next(documents_router.STORAGE_DIR.iterdir())
+    original_content = stored_file.read_bytes()
+
+    original_unlink = Path.unlink
+    backup_paths = []
+
+    def fail_backup_cleanup(path, *args, **kwargs):
+        if path.suffix == ".bak":
+            backup_paths.append(path)
+            raise PermissionError("Simulated backup lock")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_backup_cleanup)
+
+    replacement_content = b"%PDF-1.7\nReplacement after commit"
+    response = api.put(
+        f"/documents/{document_id}/replace",
+        files={
+            "file": ("cleanup-replacement.pdf", replacement_content, "application/pdf")
+        }
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["filename"] == "cleanup-replacement.pdf"
+    assert response.json()["file_size"] == len(replacement_content)
+    assert stored_file.read_bytes() == replacement_content
+    assert len(backup_paths) == 1
+    assert backup_paths[0].is_file()
+    assert backup_paths[0].read_bytes() == original_content
 

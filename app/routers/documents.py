@@ -1,13 +1,19 @@
-﻿from datetime import timezone
+from datetime import timezone
 from pathlib import Path
 import shutil
+import subprocess
+import tempfile
 import zipfile
 from uuid import uuid4
+
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Request,
     UploadFile,
@@ -28,7 +34,21 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 
 STORAGE_DIR = Path(__file__).resolve().parents[2] / "storage" / "uploads"
 
+SOFFICE_PATH = Path(r"C:\Program Files\LibreOffice\program\soffice.exe")
+
 MAX_FILE_SIZE = 200 * 1024 * 1024
+
+def is_admin_account(user: User) -> bool:
+    return user.is_admin or user.role == "admin"
+
+
+def require_owner_or_admin(user: User) -> None:
+    if user.role != "owner" and not is_admin_account(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Viewer accounts cannot manage documents"
+        )
+
 
 ALLOWED_TYPES = {
     ".pdf": "application/pdf",
@@ -46,9 +66,16 @@ ALLOWED_TYPES = {
 async def upload_document(
     request: Request,
     file: UploadFile = File(...),
+    category: str = Form("General", min_length=1, max_length=80),
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
+    require_owner_or_admin(user)
+
+    category = category.strip()
+    if not category:
+        raise HTTPException(status_code=400, detail="Category is required")
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required")
 
@@ -59,6 +86,20 @@ async def upload_document(
 
     extension = Path(original_filename).suffix.lower()
     expected_type = ALLOWED_TYPES.get(extension)
+
+    replacement_filename = Path(
+        (file.filename or "").replace(chr(92), "/")
+    ).name
+
+    if (
+        not replacement_filename
+        or len(replacement_filename) > 255
+        or Path(replacement_filename).suffix.lower() != extension
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Replacement filename must use the same supported file extension"
+        )
 
     if not expected_type or file.content_type != expected_type:
         raise HTTPException(status_code=400, detail="File type is not allowed")
@@ -127,7 +168,8 @@ async def upload_document(
             original_filename=original_filename,
             stored_filename=stored_filename,
             content_type=expected_type,
-            file_size=file_size
+            file_size=file_size,
+            category=category
         )
 
         db.add(document)
@@ -153,7 +195,8 @@ async def upload_document(
             "message": "Document uploaded successfully",
             "document_id": document.id,
             "filename": document.original_filename,
-            "file_size": document.file_size
+            "file_size": document.file_size,
+            "category": document.category
         }
 
     except Exception:
@@ -163,8 +206,6 @@ async def upload_document(
 
     finally:
         await file.close()
-
-from fastapi.responses import FileResponse
 
 from app.models.permission import DocumentPermission
 from app.services.authorization import get_authorized_document
@@ -264,10 +305,19 @@ async def edit_text_document(
     temporary_path = file_path.with_name(
         f".{file_path.name}.{uuid4().hex}.tmp"
     )
+    backup_path = file_path.with_name(
+        f".{file_path.name}.{uuid4().hex}.bak"
+    )
+    backup_created = False
+    replacement_installed = False
 
     try:
         temporary_path.write_bytes(content_bytes)
+        shutil.copy2(file_path, backup_path)
+        backup_created = True
+
         temporary_path.replace(file_path)
+        replacement_installed = True
 
         document.file_size = len(content_bytes)
 
@@ -282,9 +332,23 @@ async def edit_text_document(
         )
 
         db.commit()
+        try:
+            backup_path.unlink(missing_ok=True)
+        except OSError:
+            # Commit already succeeded; preserve backup for recovery.
+            pass
 
     except Exception:
         db.rollback()
+
+        if replacement_installed and backup_created:
+            try:
+                backup_path.replace(file_path)
+                backup_created = False
+            except OSError:
+                # Preserve the backup if restoration fails.
+                pass
+
         raise
 
     finally:
@@ -318,6 +382,20 @@ async def replace_document_file(
 
     extension = Path(document.original_filename).suffix.lower()
     expected_type = ALLOWED_TYPES.get(extension)
+
+    replacement_filename = Path(
+        (file.filename or "").replace(chr(92), "/")
+    ).name
+
+    if (
+        not replacement_filename
+        or len(replacement_filename) > 255
+        or Path(replacement_filename).suffix.lower() != extension
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Replacement filename must use the same supported file extension"
+        )
 
     if not expected_type or file.content_type != expected_type:
         raise HTTPException(
@@ -373,15 +451,39 @@ async def replace_document_file(
                 detail="Empty files are not allowed"
             )
 
+        if extension in {".docx", ".pptx"}:
+            try:
+                with zipfile.ZipFile(temporary_path) as office_file:
+                    entries = set(office_file.namelist())
+
+                required_entries = {
+                    "[Content_Types].xml",
+                    "word/document.xml" if extension == ".docx"
+                    else "ppt/presentation.xml"
+                }
+
+                if not required_entries.issubset(entries):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Invalid Office document structure"
+                    )
+
+            except zipfile.BadZipFile:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid Office document archive"
+                )
         shutil.copy2(file_path, backup_path)
         backup_created = True
 
         temporary_path.replace(file_path)
         replacement_installed = True
 
+        old_filename = document.original_filename
         old_size = document.file_size
         document.file_size = file_size
         document.content_type = expected_type
+        document.original_filename = replacement_filename
 
         record_audit_event(
             db=db,
@@ -390,7 +492,9 @@ async def replace_document_file(
             actor_user_id=user.id,
             document_id=document.id,
             details={
-                "filename": document.original_filename,
+                "filename": replacement_filename,
+                "old_filename": old_filename,
+                "new_filename": replacement_filename,
                 "old_size": old_size,
                 "new_size": file_size
             },
@@ -399,7 +503,11 @@ async def replace_document_file(
 
         db.commit()
 
-        backup_path.unlink(missing_ok=True)
+        try:
+            backup_path.unlink(missing_ok=True)
+        except OSError:
+            # Commit already succeeded; preserve backup for recovery.
+            pass
 
         return {
             "message": "Document replaced successfully",
@@ -412,12 +520,16 @@ async def replace_document_file(
         db.rollback()
 
         if replacement_installed and backup_created:
-            backup_path.replace(file_path)
+            try:
+                backup_path.replace(file_path)
+                backup_created = False
+            except OSError:
+                # Keep the backup file if restoration fails.
+                pass
         raise
 
     finally:
         temporary_path.unlink(missing_ok=True)
-        backup_path.unlink(missing_ok=True)
         await file.close()
 
 @router.get("/{document_id}/preview")
@@ -444,8 +556,9 @@ def preview_document(
     }
 
     extension = Path(document.original_filename).suffix.lower()
+    office_types = {".ppt", ".pptx"}
 
-    if extension not in preview_types:
+    if extension not in preview_types and extension not in office_types:
         raise HTTPException(
             status_code=415,
             detail="Preview is not supported for this file type. Please download it."
@@ -455,6 +568,85 @@ def preview_document(
 
     if file_path.parent != STORAGE_DIR.resolve() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Document file not found")
+
+    response_path = file_path
+    response_type = preview_types.get(extension, "application/pdf")
+    temporary_directory = None
+
+    if extension in office_types:
+        if not SOFFICE_PATH.is_file():
+            raise HTTPException(
+                status_code=503,
+                detail="Presentation preview service is unavailable."
+            )
+
+        temporary_directory = Path(
+            tempfile.mkdtemp(prefix="securedoc_preview_")
+        )
+        profile_directory = temporary_directory / "lo_profile"
+        output_directory = temporary_directory / "output"
+        output_directory.mkdir()
+
+        output_path = output_directory / f"{file_path.stem}.pdf"
+
+        try:
+            result = subprocess.run(
+                [
+                    str(SOFFICE_PATH),
+                    f"-env:UserInstallation={profile_directory.as_uri()}",
+                    "--headless",
+                    "--convert-to",
+                    "pdf:impress_pdf_Export",
+                    "--outdir",
+                    str(output_directory),
+                    str(file_path)
+                ],
+                capture_output=True,
+                text=True,
+                timeout=90,
+                check=False
+            )
+
+            if (
+                result.returncode != 0
+                or not output_path.is_file()
+                or output_path.stat().st_size == 0
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Unable to generate presentation preview."
+                )
+
+            with output_path.open("rb") as converted_file:
+                if converted_file.read(5) != b"%PDF-":
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Unable to generate presentation preview."
+                    )
+
+            response_path = output_path
+
+        except subprocess.TimeoutExpired:
+            shutil.rmtree(temporary_directory, ignore_errors=True)
+            raise HTTPException(
+                status_code=504,
+                detail="Presentation preview conversion timed out."
+            )
+        except OSError:
+            shutil.rmtree(temporary_directory, ignore_errors=True)
+            raise HTTPException(
+                status_code=503,
+                detail="Presentation preview service is unavailable."
+            )
+        except HTTPException:
+            shutil.rmtree(temporary_directory, ignore_errors=True)
+            raise
+        except Exception:
+            shutil.rmtree(temporary_directory, ignore_errors=True)
+            raise HTTPException(
+                status_code=422,
+                detail="Unable to generate presentation preview."
+            )
 
     record_audit_event(
         db=db,
@@ -467,13 +659,29 @@ def preview_document(
     )
     db.commit()
 
+    response_headers = {
+        "Content-Disposition": "inline",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, no-store, max-age=0",
+        "Pragma": "no-cache"
+    }
+
+    if temporary_directory is not None:
+        return FileResponse(
+            path=response_path,
+            media_type=response_type,
+            headers=response_headers,
+            background=BackgroundTask(
+                shutil.rmtree,
+                temporary_directory,
+                ignore_errors=True
+            )
+        )
+
     return FileResponse(
-        path=file_path,
-        media_type=preview_types[extension],
-        headers={
-            "Content-Disposition": "inline",
-            "X-Content-Type-Options": "nosniff"
-        }
+        path=response_path,
+        media_type=response_type,
+        headers=response_headers
     )
 
 
@@ -532,13 +740,15 @@ def search_share_users(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
+    require_owner_or_admin(user)
+
     document = db.get(Document, document_id)
 
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if document.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can search users")
+    if document.owner_id != user.id and not is_admin_account(user):
+        raise HTTPException(status_code=403, detail="Only the owner or admin can search users")
 
     query = q.strip()
 
@@ -576,12 +786,14 @@ def list_document_permissions(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
+    require_owner_or_admin(user)
+
     document = db.get(Document, document_id)
 
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if document.owner_id != user.id:
+    if document.owner_id != user.id and not is_admin_account(user):
         record_audit_event(
             db=db,
             action="permission_view",
@@ -594,7 +806,7 @@ def list_document_permissions(
         db.commit()
         raise HTTPException(
             status_code=403,
-            detail="Only the owner can view sharing details"
+            detail="Only the owner or admin can view sharing details"
         )
 
     permissions = db.execute(
@@ -623,12 +835,14 @@ def grant_document_permission(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
+    require_owner_or_admin(user)
+
     document = db.get(Document, document_id)
 
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if document.owner_id != user.id:
+    if document.owner_id != user.id and not is_admin_account(user):
         record_audit_event(
             db=db,
             action="permission_grant",
@@ -641,7 +855,7 @@ def grant_document_permission(
         db.commit()
         raise HTTPException(
             status_code=403,
-            detail="Only the document owner can grant permissions"
+            detail="Only the owner or admin can grant permissions"
         )
 
     target_user = db.get(User, permission_data.user_id)
@@ -704,12 +918,14 @@ def revoke_document_permission(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
+    require_owner_or_admin(user)
+
     document = db.get(Document, document_id)
 
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if document.owner_id != user.id:
+    if document.owner_id != user.id and not is_admin_account(user):
         record_audit_event(
             db=db,
             action="permission_revoke",
@@ -722,7 +938,7 @@ def revoke_document_permission(
         db.commit()
         raise HTTPException(
             status_code=403,
-            detail="Only the document owner can revoke permissions"
+            detail="Only the owner or admin can revoke permissions"
         )
 
     permission = db.scalar(
@@ -759,6 +975,7 @@ def revoke_document_permission(
 def list_documents(
     q: str | None = None,
     content_type: str | None = None,
+    category: str | None = None,
     ownership: str = "all",
     date_from: str | None = None,
     date_to: str | None = None,
@@ -795,20 +1012,25 @@ def list_documents(
     if start_date and end_date and start_date > end_date:
         raise HTTPException(status_code=400, detail="date_from cannot be after date_to")
 
+    account_role = "admin" if user.is_admin or user.role == "admin" else user.role
     result = []
 
-    if ownership in {"all", "owned"}:
+    if ownership in {"all", "owned"} and account_role != "viewer":
         owned_documents = db.scalars(
             select(Document).where(Document.owner_id == user.id)
         ).all()
 
         for document in owned_documents:
+            owner = db.get(User, document.owner_id)
             result.append({
                 "id": document.id,
                 "filename": document.original_filename,
                 "content_type": document.content_type,
+                "category": document.category or "General",
                 "file_size": document.file_size,
                 "owner_id": document.owner_id,
+                "owner_username": owner.username if owner else "Unknown",
+                "owner_email": owner.email if owner else None,
                 "is_owner": True,
                 "shared_by_username": None,
                 "shared_by_email": None,
@@ -830,6 +1052,7 @@ def list_documents(
             if not document:
                 continue
 
+            owner = db.get(User, document.owner_id)
             shared_by = db.get(User, permission.granted_by)
             shared_at = permission.granted_at
 
@@ -840,8 +1063,11 @@ def list_documents(
                 "id": document.id,
                 "filename": document.original_filename,
                 "content_type": document.content_type,
+                "category": document.category or "General",
                 "file_size": document.file_size,
                 "owner_id": document.owner_id,
+                "owner_username": owner.username if owner else "Unknown",
+                "owner_email": owner.email if owner else None,
                 "is_owner": False,
                 "shared_by_username": shared_by.username if shared_by else "Unknown",
                 "shared_by_email": shared_by.email if shared_by else None,
@@ -850,19 +1076,29 @@ def list_documents(
                 "created_at": document.created_at.isoformat() if document.created_at else None
             })
 
-    if q:
+    if q and q.strip():
         search_term = q.strip().casefold()
         result = [
             item for item in result
             if search_term in item["filename"].casefold()
             or search_term in item["content_type"].casefold()
+            or search_term in item["category"].casefold()
+            or search_term in (item["owner_username"] or "").casefold()
+            or search_term in (item["owner_email"] or "").casefold()
         ]
 
-    if content_type:
+    if content_type and content_type.strip():
         selected_type = content_type.strip().casefold()
         result = [
             item for item in result
             if selected_type in item["content_type"].casefold()
+        ]
+
+    if category and category.strip():
+        selected_category = category.strip().casefold()
+        result = [
+            item for item in result
+            if selected_category == item["category"].casefold()
         ]
 
     if start_date:
@@ -920,6 +1156,8 @@ def delete_document(
     user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
+    require_owner_or_admin(user)
+
     document = db.get(Document, document_id)
 
     if document is None:
@@ -928,7 +1166,7 @@ def delete_document(
             detail="Document not found",
         )
 
-    if document.owner_id != user.id:
+    if document.owner_id != user.id and not is_admin_account(user):
         record_audit_event(
             db,
             action="document_delete",
@@ -941,7 +1179,7 @@ def delete_document(
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the document owner can delete this document",
+            detail="Only the owner or admin can delete this document",
         )
 
     storage_root = STORAGE_DIR.resolve()
@@ -991,6 +1229,7 @@ def delete_document(
         quarantine_path.unlink()
 
     return {"message": "Document deleted successfully"}
+
 
 
 

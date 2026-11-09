@@ -1,7 +1,6 @@
 ﻿# SecureDoc - AI Prompt Documentation
 
 **Project:** SecureDoc  
-**Documentation Date:** 05 November 2026  
 **Purpose:** Record AI-assisted development, security design, implementation decisions and verification.
 
 > Documentation accuracy: The prompts below are reconstructed from the implemented features and available project progress. They are not claimed to be verbatim copies of the original conversations.

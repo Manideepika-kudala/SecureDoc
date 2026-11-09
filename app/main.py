@@ -168,10 +168,18 @@ def share_page(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if document.owner_id != user.id:
+    is_admin = user.is_admin or user.role == "admin"
+
+    if user.role == "viewer" and not is_admin:
         raise HTTPException(
             status_code=403,
-            detail="Only the document owner can manage sharing"
+            detail="Viewer accounts cannot manage document sharing"
+        )
+
+    if document.owner_id != user.id and not is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the document owner or admin can manage sharing"
         )
 
     return templates.TemplateResponse(
