@@ -11,3 +11,5 @@ Jinja2==3.1.6
 pytest==9.2.0
 httpx==0.28.1
 psycopg[binary]>=3.2,<4
+
+itsdangerous==2.2.0
