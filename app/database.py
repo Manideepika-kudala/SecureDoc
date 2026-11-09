@@ -210,6 +210,8 @@ def create_tables():
             _configure_sqlite_audit_protection(connection)
 
         elif engine.dialect.name == "postgresql":
+            connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0"))
+            connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE"))
             connection.execute(text(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'owner'"
             ))

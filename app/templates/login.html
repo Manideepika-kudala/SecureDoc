@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -78,10 +78,16 @@
             font-size: 15px;
             font-weight: 600;
             cursor: pointer;
+            transition: background 0.2s ease;
         }
 
         .login-card button:hover {
             background: #B66440;
+        }
+
+        .login-card button:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
         }
 
         #message {
@@ -89,6 +95,7 @@
             font-size: 13px;
             line-height: 1.6;
             text-align: center;
+            min-height: 20px;
         }
 
         .login-footer {
@@ -102,9 +109,24 @@
         .login-footer a {
             color: #C8754D;
             font-weight: 600;
+            text-decoration: none;
+        }
+
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 30px 24px;
+            }
+
+            .login-brand h1 {
+                font-size: 32px;
+            }
         }
     </style>
-<script src="/static/js/csrf.js"></script></head>
+</head>
 
 <body>
 
@@ -121,6 +143,8 @@
             <input
                 type="email"
                 id="email"
+                name="email"
+                autocomplete="username"
                 required
                 placeholder="you@example.com"
             >
@@ -129,8 +153,10 @@
             <input
                 type="password"
                 id="password"
+                name="password"
                 minlength="8"
                 maxlength="128"
+                autocomplete="current-password"
                 required
                 placeholder="Enter your password"
             >
@@ -139,7 +165,7 @@
                 Log In to SecureDoc
             </button>
 
-            <p id="message" role="status"></p>
+            <p id="message" role="status" aria-live="polite"></p>
 
         </form>
 
@@ -147,59 +173,125 @@
             Don't have an account?
             <a href="/register">Create Account</a>
             <br>
-            <a href="/">← Back to Home</a>
+            <a href="/">&#8592; Back to Home</a>
         </div>
 
     </main>
 
     <script>
-        const form = document.getElementById("loginForm");
+        const loginForm = document.getElementById("loginForm");
+        const loginButton = document.getElementById("loginButton");
         const message = document.getElementById("message");
-        const button = document.getElementById("loginButton");
 
-        form.addEventListener("submit", async (event) => {
+        function getCookie(name) {
+            const cookies = document.cookie.split(";");
+
+            for (const cookie of cookies) {
+                const trimmed = cookie.trim();
+
+                if (trimmed.startsWith(name + "=")) {
+                    return decodeURIComponent(
+                        trimmed.substring(name.length + 1)
+                    );
+                }
+            }
+
+            return null;
+        }
+
+        async function getCsrfToken() {
+            let token = getCookie("csrf_token");
+
+            if (token) {
+                return token;
+            }
+
+            await fetch("/login", {
+                method: "GET",
+                credentials: "same-origin",
+                cache: "no-store"
+            });
+
+            token = getCookie("csrf_token");
+
+            if (!token) {
+                throw new Error(
+                    "Security token unavailable. Please refresh the page."
+                );
+            }
+
+            return token;
+        }
+
+        loginForm.addEventListener("submit", async function (event) {
             event.preventDefault();
 
             message.textContent = "";
-            button.disabled = true;
-            button.textContent = "Verifying...";
-
-            const loginData = {
-                email: document.getElementById("email").value.trim(),
-                password: document.getElementById("password").value
-            };
+            loginButton.disabled = true;
+            loginButton.textContent = "Signing in...";
 
             try {
+                const email = document.getElementById("email").value.trim();
+                const password = document.getElementById("password").value;
+
+                const csrfToken = await getCsrfToken();
+
                 const response = await fetch("/auth/login", {
                     method: "POST",
+                    credentials: "same-origin",
                     headers: {
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "X-CSRF-Token": csrfToken
                     },
-                    body: JSON.stringify(loginData)
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
                 });
 
-                const result = await response.json();
+                const result = await response.json().catch(() => ({}));
 
                 if (!response.ok) {
-                    message.style.color = "#B33A3A";
-                    message.textContent = result.detail || "Login failed.";
-                    return;
+                    if (response.status === 401) {
+                        throw new Error("Invalid email or password.");
+                    }
+
+                    if (response.status === 403) {
+                        throw new Error(
+                            "Security validation failed. Please refresh the page."
+                        );
+                    }
+
+                    if (response.status === 429) {
+                        throw new Error(
+                            "Too many attempts. Please try again later."
+                        );
+                    }
+
+                    if (response.status >= 500) {
+                        throw new Error(
+                            "Server error. Please try again later."
+                        );
+                    }
+
+                    throw new Error(
+                        result.detail || "Login failed."
+                    );
                 }
 
-                window.location.href = "/dashboard";
+                message.textContent = "Login successful. Redirecting...";
+
+                window.location.assign("/dashboard");
 
             } catch (error) {
-                message.style.color = "#B33A3A";
                 message.textContent =
-                    "Unable to connect. Please try again.";
-            } finally {
-                button.disabled = false;
-                button.textContent = "Log In to SecureDoc";
+                    error.message || "Unable to connect. Please try again.";
+
+                loginButton.disabled = false;
+                loginButton.textContent = "Log In to SecureDoc";
             }
         });
     </script>
 
 </body>
 </html>
-
-
