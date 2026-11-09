@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -105,7 +105,7 @@ def login_user(
     blocked_until = is_ip_blocked(db, ip_address)
 
     if blocked_until:
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(timezone.utc)
         retry_after = max(1, int((blocked_until - now).total_seconds()))
 
         save_auth_audit(
@@ -214,3 +214,4 @@ def logout_user(
     request.session.clear()
 
     return {"message": "Logout successful"}
+

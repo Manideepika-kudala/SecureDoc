@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+﻿from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,13 @@ BLOCK_DURATION_MINUTES = 15
 
 
 def _utc_now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(timezone.utc)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def is_ip_blocked(db: Session, ip_address: str):
@@ -25,8 +31,10 @@ def is_ip_blocked(db: Session, ip_address: str):
     now = _utc_now()
 
     if attempt.blocked_until:
-        if attempt.blocked_until > now:
-            return attempt.blocked_until
+        blocked_until = _as_utc(attempt.blocked_until)
+
+        if blocked_until > now:
+            return blocked_until
 
         attempt.failed_attempts = 0
         attempt.blocked_until = None
@@ -34,7 +42,9 @@ def is_ip_blocked(db: Session, ip_address: str):
         db.commit()
         return None
 
-    if now - attempt.window_started_at >= timedelta(
+    window_started_at = _as_utc(attempt.window_started_at)
+
+    if now - window_started_at >= timedelta(
         minutes=ATTEMPT_WINDOW_MINUTES
     ):
         attempt.failed_attempts = 0
@@ -59,7 +69,9 @@ def record_failed_login(db: Session, ip_address: str):
         )
         db.add(attempt)
     else:
-        if now - attempt.window_started_at >= timedelta(
+        window_started_at = _as_utc(attempt.window_started_at)
+
+        if now - window_started_at >= timedelta(
             minutes=ATTEMPT_WINDOW_MINUTES
         ):
             attempt.failed_attempts = 0
